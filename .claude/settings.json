@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Execute|Shell|shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.rulesync/hooks/no-ai-trailers.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

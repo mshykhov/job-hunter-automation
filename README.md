@@ -1,0 +1,39 @@
+# Job Hunter Automation
+
+Private-runtime execution layer for [Job Hunter](https://github.com/mshykhov/job-hunter).
+It runs deterministic health probes, a local Playwright-backed Browser Runner MCP,
+and bounded Codex canaries. Durable state, owner policy, and audit data remain in
+the Job Hunter API and PostgreSQL.
+
+The repository is public, but deployed access is single-owner. Browser profiles,
+cookies, Codex authentication, M2M credentials, prompts, model output, and captured
+page data are runtime secrets and are never committed.
+
+## Status
+
+The first delivery slice implements health reporting only. It does not read vacancy
+queues, fill external forms, or submit applications.
+
+## Development
+
+Requirements: Node.js 24 and npm.
+
+```sh
+npm ci
+npm run verify
+npm run rulesync:verify
+```
+
+Build output is written to `dist/`. See [the documentation map](docs/README.md) for
+architecture, operating guidance, exact contracts, and active plans.
+
+## Agent configuration
+
+`.rulesync/` is the shared canonical source. `AGENTS.md`, `CLAUDE.md`, and target
+hook configuration are generated outputs.
+
+```sh
+npm run rulesync:dry-run
+npm run rulesync:generate
+npm run rulesync:verify
+```

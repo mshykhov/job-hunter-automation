@@ -1,0 +1,28 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+__pycache__/
+*.pyc
+
+# Runtime state and credentials
+.env
+.env.*
+!.env.example
+auth.json
+browser-profile/
+playwright-report/
+test-results/
+
+# Local tools
+.mcp.json
+.idea/
+.vscode/
+.DS_Store
+*.iml
+
+# Shared generated agent configuration
+!CLAUDE.md
+!.claude/
+.claude/*
+!.claude/settings.json
