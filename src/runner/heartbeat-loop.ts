@@ -15,13 +15,15 @@ export interface RunnerClient {
 }
 
 export interface HeartbeatLoopOptions {
-  sleep: (milliseconds: number) => Promise<void>;
+  sleep: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
   now: () => Date;
   id: () => string;
 }
 
 const DEFAULT_OPTIONS: HeartbeatLoopOptions = {
-  sleep: async (milliseconds) => delay(milliseconds),
+  sleep: async (milliseconds, signal) => {
+    await delay(milliseconds, undefined, { signal });
+  },
   now: () => new Date(),
   id: randomUUID,
 };
@@ -33,29 +35,38 @@ export class HeartbeatLoop {
 
   constructor(
     private readonly client: RunnerClient,
-    private readonly collect: () => Promise<HeartbeatDraft>,
+    private readonly collect: (
+      session: RunnerSession,
+      signal?: AbortSignal,
+    ) => Promise<HeartbeatDraft>,
     private readonly options: HeartbeatLoopOptions = DEFAULT_OPTIONS,
   ) {}
 
-  runOnce(): Promise<void> {
-    const execution = this.serialized.then(() => this.executeOnce());
+  runOnce(signal?: AbortSignal): Promise<void> {
+    const execution = this.serialized.then(() => this.executeOnce(signal));
     this.serialized = execution.catch(() => undefined);
     return execution;
   }
 
   async run(signal: AbortSignal): Promise<void> {
     while (!isAborted(signal)) {
-      await this.runOnce();
-      if (!isAborted(signal))
-        await this.options.sleep(
-          (this.session?.heartbeatIntervalSeconds ?? 60) * 1000,
-        );
+      await this.runOnce(signal);
+      if (!isAborted(signal)) {
+        try {
+          await this.options.sleep(
+            (this.session?.heartbeatIntervalSeconds ?? 60) * 1000,
+            signal,
+          );
+        } catch (error) {
+          if (!isAborted(signal)) throw error;
+        }
+      }
     }
   }
 
-  private async executeOnce(): Promise<void> {
+  private async executeOnce(signal?: AbortSignal): Promise<void> {
     this.session ??= await this.client.startSession();
-    const draft = await this.collect();
+    const draft = await this.collect(this.session, signal);
     let request = this.request(
       draft,
       this.session.generation,

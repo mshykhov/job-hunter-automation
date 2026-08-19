@@ -6,3 +6,4 @@ must match executable schemas and tests.
 
 - [Runtime configuration](runtime-configuration.md)
 - [Browser Runner MCP](browser-runner-mcp.md)
+- [Codex readiness canary](codex-canary.md)

@@ -6,26 +6,25 @@ describe("runPreflight", () => {
   it("serializes browser and MCP probes into one bounded snapshot", async () => {
     const order: string[] = [];
     const result = await runPreflight({
-      browser: () => {
-        order.push("browser");
+      browserRunner: () => {
+        order.push("browser-runner");
         return Promise.resolve({
-          component: "PLAYWRIGHT",
-          state: "READY",
-          reason: "NONE",
-          checkedAt: "2026-08-18T08:00:00.000Z",
-          durationMs: 10,
-          probeVersion: "0.1.0",
-        });
-      },
-      browserMcp: () => {
-        order.push("browser-mcp");
-        return Promise.resolve({
-          component: "BROWSER_MCP",
-          state: "READY",
-          reason: "NONE",
-          checkedAt: "2026-08-18T08:00:01.000Z",
-          durationMs: 20,
-          probeVersion: "0.1.0",
+          browser: {
+            component: "PLAYWRIGHT",
+            state: "READY",
+            reason: "NONE",
+            checkedAt: "2026-08-18T08:00:00.000Z",
+            durationMs: 10,
+            probeVersion: "0.1.0",
+          },
+          mcp: {
+            component: "BROWSER_MCP",
+            state: "READY",
+            reason: "NONE",
+            checkedAt: "2026-08-18T08:00:01.000Z",
+            durationMs: 20,
+            probeVersion: "0.1.0",
+          },
         });
       },
       jobHunterMcp: () => {
@@ -42,7 +41,7 @@ describe("runPreflight", () => {
       now: () => new Date("2026-08-18T08:00:03Z"),
     });
 
-    expect(order).toEqual(["browser", "browser-mcp", "job-hunter-mcp"]);
+    expect(order).toEqual(["browser-runner", "job-hunter-mcp"]);
     expect(result.probe).toEqual({
       outcome: "SUCCESS",
       reason: "NONE",
@@ -68,14 +67,16 @@ describe("runPreflight", () => {
       probeVersion: "0.1.0",
     };
     const dependency = vi.fn(() => Promise.resolve(failure));
+    const browserRunner = vi.fn(() =>
+      Promise.resolve({ browser: failure, mcp: failure }),
+    );
 
     const first = await runPreflight({
-      browser: dependency,
-      browserMcp: dependency,
+      browserRunner,
       jobHunterMcp: dependency,
     });
     const second = await runPreflight(
-      { browser: dependency, browserMcp: dependency, jobHunterMcp: dependency },
+      { browserRunner, jobHunterMcp: dependency },
       first.probe,
     );
 

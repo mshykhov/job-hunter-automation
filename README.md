@@ -27,11 +27,20 @@ npm run rulesync:verify
 Build output is written to `dist/`. See [the documentation map](docs/README.md) for
 architecture, operating guidance, exact contracts, and active plans.
 
+The production launcher is installed as one hardened systemd service. Follow the
+[installation and recovery runbook](docs/runbooks/automation-service.md); the
+installer deliberately leaves the service disabled until M2M credentials and the
+dedicated Codex login are present.
+
 Runtime configuration is environment-only. The required variable names and safe
 local validation rules are documented in
 [Runtime configuration](docs/reference/runtime-configuration.md). Credentials and
 tokens remain in memory or protected deployment storage and must not be passed as
 command-line arguments.
+
+The API status and delegation endpoints are owner-only. The machine runner uses a
+separate short-lived M2M identity and cannot choose an owner or access the private
+web status page.
 
 ## Agent configuration
 

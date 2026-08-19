@@ -4,10 +4,10 @@ import type {
   ProbeComponentResult,
   ProbeSnapshot,
 } from "../domain/health.js";
+import type { BrowserRunnerProbeResult } from "./mcp-probe.js";
 
 interface PreflightDependencies {
-  browser(): Promise<ProbeComponentResult>;
-  browserMcp(): Promise<ProbeComponentResult>;
+  browserRunner(): Promise<BrowserRunnerProbeResult>;
   jobHunterMcp(): Promise<ProbeComponentResult>;
   now?: () => Date;
 }
@@ -21,10 +21,10 @@ export async function runPreflight(
   dependencies: PreflightDependencies,
   previous?: ProbeSnapshot,
 ): Promise<PreflightResult> {
-  const browser = await dependencies.browser();
-  const browserMcp = await dependencies.browserMcp();
+  const browserRunner = await dependencies.browserRunner();
   const jobHunterMcp = await dependencies.jobHunterMcp();
-  const results = [browser, browserMcp, jobHunterMcp];
+  const browser = browserRunner.browser;
+  const results = [browser, browserRunner.mcp, jobHunterMcp];
   const successful = results.every((result) => result.state === "READY");
   const checkedAt = (dependencies.now ?? (() => new Date()))().toISOString();
   const components: Partial<Record<AutomationComponent, ComponentSnapshot>> =

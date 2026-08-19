@@ -1,0 +1,22 @@
+approval_policy = "never"
+sandbox_mode = "read-only"
+cli_auth_credentials_store = "file"
+web_search = "disabled"
+hide_agent_reasoning = true
+
+[history]
+persistence = "none"
+
+[mcp_servers.job_hunter]
+url = "https://api-jobhunter.gaynance.com/mcp"
+bearer_token_env_var = "JOB_HUNTER_MCP_TOKEN"
+enabled = true
+required = true
+
+[mcp_servers.browser_runner]
+command = "/usr/bin/node"
+args = ["/opt/job-hunter-automation/dist/browser-runner/server.js"]
+env_vars = ["BROWSER_PROFILE_DIR", "DISPLAY"]
+enabled_tools = ["browser_preflight"]
+enabled = true
+required = true

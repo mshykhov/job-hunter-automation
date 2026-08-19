@@ -27,7 +27,16 @@ export interface McpProbeClient {
   connect(transport: Transport): Promise<void>;
   getServerCapabilities(): { tools?: unknown } | undefined;
   listTools(): Promise<{ tools: { name: string }[] }>;
+  callTool?(request: {
+    name: string;
+    arguments: Record<string, unknown>;
+  }): Promise<unknown>;
   close(): Promise<void>;
+}
+
+export interface BrowserRunnerProbeResult {
+  browser: ProbeComponentResult;
+  mcp: ProbeComponentResult;
 }
 
 export interface McpProbeOptions {
@@ -35,6 +44,8 @@ export interface McpProbeOptions {
   requiredTools: readonly string[];
   now?: () => Date;
   duration?: () => number;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 }
 
 export function createBrowserRunnerTransport(
@@ -42,12 +53,18 @@ export function createBrowserRunnerTransport(
   profileDir: string,
   factory: StdioTransportFactory = (parameters) =>
     new StdioClientTransport(parameters),
+  baseEnv: NodeJS.ProcessEnv = process.env,
 ): Transport {
+  const display = baseEnv.DISPLAY;
   return factory({
     command: process.execPath,
     args: [serverPath],
     stderr: "pipe",
-    env: { ...getDefaultEnvironment(), BROWSER_PROFILE_DIR: profileDir },
+    env: {
+      ...getDefaultEnvironment(),
+      BROWSER_PROFILE_DIR: profileDir,
+      ...(display === undefined ? {} : { DISPLAY: display }),
+    },
   });
 }
 
@@ -71,14 +88,21 @@ export async function runMcpProbe(
   const now = options.now ?? (() => new Date());
   const duration = options.duration ?? elapsedMilliseconds();
   try {
-    await client.connect(transport);
-    const capabilities = client.getServerCapabilities();
-    if (!capabilities?.tools)
-      throw new Error("MCP tools capability is unavailable");
-    const tools = await client.listTools();
-    const names = new Set(tools.tools.map((tool) => tool.name));
-    if (options.requiredTools.some((tool) => !names.has(tool)))
-      throw new Error("Required MCP tool is unavailable");
+    await withMcpLifecycle(
+      client,
+      async () => {
+        await client.connect(transport);
+        const capabilities = client.getServerCapabilities();
+        if (!capabilities?.tools)
+          throw new Error("MCP tools capability is unavailable");
+        const tools = await client.listTools();
+        const names = new Set(tools.tools.map((tool) => tool.name));
+        if (options.requiredTools.some((tool) => !names.has(tool)))
+          throw new Error("Required MCP tool is unavailable");
+      },
+      options.signal,
+      options.timeoutMs,
+    );
     return result(options.component, "READY", "NONE", now, duration);
   } catch {
     return result(
@@ -88,8 +112,6 @@ export async function runMcpProbe(
       now,
       duration,
     );
-  } finally {
-    await client.close();
   }
 }
 
@@ -103,20 +125,65 @@ export function newMcpProbeClient(): McpProbeClient {
 export function probeBrowserRunner(
   serverPath: string,
   profileDir: string,
-): Promise<ProbeComponentResult> {
-  return runMcpProbe(
+  signal?: AbortSignal,
+): Promise<BrowserRunnerProbeResult> {
+  return runBrowserRunnerProbe(
     newMcpProbeClient(),
     createBrowserRunnerTransport(serverPath, profileDir),
-    {
-      component: "BROWSER_MCP",
-      requiredTools: ["browser_preflight"],
-    },
+    undefined,
+    undefined,
+    signal,
   );
+}
+
+export async function runBrowserRunnerProbe(
+  client: McpProbeClient,
+  transport: Transport,
+  now: () => Date = () => new Date(),
+  duration: () => number = elapsedMilliseconds(),
+  signal?: AbortSignal,
+): Promise<BrowserRunnerProbeResult> {
+  try {
+    const response = await withMcpLifecycle(
+      client,
+      async () => {
+        await client.connect(transport);
+        const capabilities = client.getServerCapabilities();
+        if (!capabilities?.tools)
+          throw new Error("MCP tools capability is unavailable");
+        const tools = await client.listTools();
+        if (!tools.tools.some((tool) => tool.name === "browser_preflight"))
+          throw new Error("Required MCP tool is unavailable");
+        if (!client.callTool)
+          throw new Error("MCP tool invocation is unavailable");
+        return client.callTool({
+          name: "browser_preflight",
+          arguments: {},
+        });
+      },
+      signal,
+    );
+    if (!isRecord(response))
+      throw new Error("Browser preflight response is invalid");
+    const browser = parseBrowserResult(response.structuredContent);
+    if (response.isError === true || !browser)
+      throw new Error("Browser preflight response is invalid");
+    return {
+      browser,
+      mcp: result("BROWSER_MCP", "READY", "NONE", now, duration),
+    };
+  } catch {
+    return {
+      browser: browserFailure(now),
+      mcp: result("BROWSER_MCP", "DEGRADED", "MCP_UNAVAILABLE", now, duration),
+    };
+  }
 }
 
 export function probeJobHunterMcp(
   mcpUrl: string,
   token: string,
+  signal?: AbortSignal,
 ): Promise<ProbeComponentResult> {
   return runMcpProbe(
     newMcpProbeClient(),
@@ -124,6 +191,7 @@ export function probeJobHunterMcp(
     {
       component: "JOB_HUNTER_MCP",
       requiredTools: [],
+      ...(signal === undefined ? {} : { signal }),
     },
   );
 }
@@ -149,6 +217,88 @@ function elapsedMilliseconds(): () => number {
   const startedAt = performance.now();
   return () => performance.now() - startedAt;
 }
+
+function browserFailure(now: () => Date): ProbeComponentResult {
+  return {
+    component: "PLAYWRIGHT",
+    state: "DEGRADED",
+    reason: "PLAYWRIGHT_UNAVAILABLE",
+    checkedAt: now().toISOString(),
+    durationMs: 0,
+    probeVersion: AUTOMATION_RUNTIME_VERSION,
+  };
+}
+
+function parseBrowserResult(value: unknown): ProbeComponentResult | undefined {
+  if (
+    !isRecord(value) ||
+    !(
+      (value.component === "CHROME" || value.component === "PLAYWRIGHT") &&
+      (value.state === "READY" ||
+        value.state === "DEGRADED" ||
+        value.state === "UNAVAILABLE") &&
+      (value.reason === "NONE" ||
+        value.reason === "CHROME_UNAVAILABLE" ||
+        value.reason === "PLAYWRIGHT_UNAVAILABLE") &&
+      typeof value.checkedAt === "string" &&
+      typeof value.durationMs === "number" &&
+      Number.isFinite(value.durationMs) &&
+      value.durationMs >= 0 &&
+      typeof value.probeVersion === "string"
+    )
+  ) {
+    return undefined;
+  }
+  return {
+    component: value.component,
+    state: value.state,
+    reason: value.reason,
+    checkedAt: value.checkedAt,
+    durationMs: value.durationMs,
+    probeVersion: value.probeVersion,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+async function withMcpLifecycle<T>(
+  client: McpProbeClient,
+  operation: () => Promise<T>,
+  signal?: AbortSignal,
+  timeoutMs = MCP_TIMEOUT_MS,
+): Promise<T> {
+  let closePromise: Promise<void> | undefined;
+  const close = () => {
+    closePromise ??= client.close();
+    return closePromise;
+  };
+  if (signal?.aborted) {
+    await close().catch(() => undefined);
+    throw new Error("MCP probe cancelled");
+  }
+  let rejectCancellation: ((error: Error) => void) | undefined;
+  const cancellation = new Promise<never>((_resolve, reject) => {
+    rejectCancellation = reject;
+  });
+  const cancel = () => {
+    void close().catch(() => undefined);
+    rejectCancellation?.(new Error("MCP probe cancelled"));
+  };
+  signal?.addEventListener("abort", cancel, { once: true });
+  const timer = setTimeout(cancel, timeoutMs);
+  timer.unref();
+  try {
+    return await Promise.race([operation(), cancellation]);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
+    await close().catch(() => undefined);
+  }
+}
+
+const MCP_TIMEOUT_MS = 15_000;
 
 class CompatibleHttpTransport implements Transport {
   onclose?: () => void;

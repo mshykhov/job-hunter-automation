@@ -110,4 +110,50 @@ describe("HeartbeatLoop", () => {
       [2, 1],
     ]);
   });
+
+  it("passes the server session and abort signal to collection", async () => {
+    const client = {
+      startSession: vi.fn(() => Promise.resolve(session(1))),
+      sendHeartbeat: vi.fn(() => Promise.resolve(accepted)),
+    };
+    const collect = vi.fn(() => Promise.resolve(draft));
+    const controller = new AbortController();
+    const loop = new HeartbeatLoop(client, collect, {
+      sleep: () => Promise.resolve(),
+      now: () => new Date("2026-08-18T08:00:00Z"),
+      id: () => "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce1f",
+    });
+
+    await loop.runOnce(controller.signal);
+
+    expect(collect).toHaveBeenCalledWith(session(1), controller.signal);
+  });
+
+  it("interrupts the heartbeat sleep when the launcher stops", async () => {
+    const client = {
+      startSession: vi.fn(() => Promise.resolve(session(1))),
+      sendHeartbeat: vi.fn(() => Promise.resolve(accepted)),
+    };
+    const controller = new AbortController();
+    const sleep = vi.fn(
+      (_milliseconds: number, signal?: AbortSignal) =>
+        new Promise<void>((resolve) => {
+          signal?.addEventListener("abort", resolve, { once: true });
+        }),
+    );
+    const loop = new HeartbeatLoop(client, () => Promise.resolve(draft), {
+      sleep,
+      now: () => new Date("2026-08-18T08:00:00Z"),
+      id: () => "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce1f",
+    });
+
+    const active = loop.run(controller.signal);
+    await vi.waitFor(() => {
+      expect(sleep).toHaveBeenCalledOnce();
+    });
+    controller.abort();
+    await active;
+
+    expect(client.sendHeartbeat).toHaveBeenCalledOnce();
+  });
 });

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createBrowserRunnerTransport,
   createJobHunterTransport,
+  runBrowserRunnerProbe,
   runMcpProbe,
 } from "../mcp-probe.js";
 
@@ -26,6 +27,7 @@ describe("MCP probes", () => {
       "/opt/job-hunter-automation/dist/browser-runner/server.js",
       "/var/lib/job-hunter-automation/chrome-profile",
       stdioFactory,
+      { DISPLAY: ":99" },
     );
     createJobHunterTransport(
       "https://api.example.test/mcp",
@@ -42,6 +44,7 @@ describe("MCP probes", () => {
     expect(stdioParameters?.env?.BROWSER_PROFILE_DIR).toBe(
       "/var/lib/job-hunter-automation/chrome-profile",
     );
+    expect(stdioParameters?.env?.DISPLAY).toBe(":99");
     expect(httpFactory).toHaveBeenCalledWith(
       new URL("https://api.example.test/mcp"),
       {
@@ -104,5 +107,73 @@ describe("MCP probes", () => {
     });
     expect(JSON.stringify(result)).not.toContain("protocol details");
     expect(client.close).toHaveBeenCalledOnce();
+  });
+
+  it("calls the bounded browser preflight tool before closing its child", async () => {
+    const client = {
+      connect: vi.fn(() => Promise.resolve()),
+      getServerCapabilities: vi.fn(() => ({ tools: {} })),
+      listTools: vi.fn(() =>
+        Promise.resolve({ tools: [{ name: "browser_preflight" }] }),
+      ),
+      callTool: vi.fn(() =>
+        Promise.resolve({
+          structuredContent: {
+            component: "PLAYWRIGHT",
+            state: "READY",
+            reason: "NONE",
+            checkedAt: "2026-08-18T08:00:00.000Z",
+            durationMs: 25,
+            probeVersion: "0.1.0",
+          },
+        }),
+      ),
+      close: vi.fn(() => Promise.resolve()),
+    };
+
+    const result = await runBrowserRunnerProbe(
+      client,
+      InMemoryTransport.createLinkedPair()[0],
+      () => new Date("2026-08-18T08:00:01Z"),
+      () => 40,
+    );
+
+    expect(client.callTool).toHaveBeenCalledWith({
+      name: "browser_preflight",
+      arguments: {},
+    });
+    expect(result.browser).toMatchObject({
+      component: "PLAYWRIGHT",
+      state: "READY",
+    });
+    expect(result.mcp).toMatchObject({
+      component: "BROWSER_MCP",
+      state: "READY",
+    });
+    expect(client.close).toHaveBeenCalledOnce();
+  });
+
+  it("does not connect a Browser Runner after shutdown has started", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const client = {
+      connect: vi.fn(() => Promise.resolve()),
+      getServerCapabilities: vi.fn(),
+      listTools: vi.fn(),
+      callTool: vi.fn(),
+      close: vi.fn(() => Promise.resolve()),
+    };
+
+    const result = await runBrowserRunnerProbe(
+      client,
+      InMemoryTransport.createLinkedPair()[0],
+      undefined,
+      undefined,
+      controller.signal,
+    );
+
+    expect(client.connect).not.toHaveBeenCalled();
+    expect(client.close).toHaveBeenCalledOnce();
+    expect(result.mcp.state).toBe("DEGRADED");
   });
 });
