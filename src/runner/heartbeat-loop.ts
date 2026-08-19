@@ -1,0 +1,110 @@
+import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
+
+import type { RunnerSession } from "../api/job-hunter-client.js";
+import { StaleGenerationError } from "../api/job-hunter-client.js";
+import type {
+  HeartbeatDraft,
+  HeartbeatRequest,
+  HeartbeatResponse,
+} from "../domain/health.js";
+
+export interface RunnerClient {
+  startSession(): Promise<RunnerSession>;
+  sendHeartbeat(request: HeartbeatRequest): Promise<HeartbeatResponse>;
+}
+
+export interface HeartbeatLoopOptions {
+  sleep: (milliseconds: number) => Promise<void>;
+  now: () => Date;
+  id: () => string;
+}
+
+const DEFAULT_OPTIONS: HeartbeatLoopOptions = {
+  sleep: async (milliseconds) => delay(milliseconds),
+  now: () => new Date(),
+  id: randomUUID,
+};
+
+export class HeartbeatLoop {
+  private session: RunnerSession | undefined;
+  private sequence = 0;
+  private serialized: Promise<void> = Promise.resolve();
+
+  constructor(
+    private readonly client: RunnerClient,
+    private readonly collect: () => Promise<HeartbeatDraft>,
+    private readonly options: HeartbeatLoopOptions = DEFAULT_OPTIONS,
+  ) {}
+
+  runOnce(): Promise<void> {
+    const execution = this.serialized.then(() => this.executeOnce());
+    this.serialized = execution.catch(() => undefined);
+    return execution;
+  }
+
+  async run(signal: AbortSignal): Promise<void> {
+    while (!isAborted(signal)) {
+      await this.runOnce();
+      if (!isAborted(signal))
+        await this.options.sleep(
+          (this.session?.heartbeatIntervalSeconds ?? 60) * 1000,
+        );
+    }
+  }
+
+  private async executeOnce(): Promise<void> {
+    this.session ??= await this.client.startSession();
+    const draft = await this.collect();
+    let request = this.request(
+      draft,
+      this.session.generation,
+      this.sequence + 1,
+    );
+    let retry = 0;
+
+    for (;;) {
+      try {
+        const response = await this.client.sendHeartbeat(request);
+        this.sequence = response.acceptedSequence;
+        return;
+      } catch (error) {
+        if (error instanceof StaleGenerationError) {
+          this.session = await this.client.startSession();
+          this.sequence = 0;
+          request = {
+            ...request,
+            generation: this.session.generation,
+            sequence: 1,
+          };
+          continue;
+        }
+        const backoff = BACKOFF_MILLISECONDS[retry];
+        if (backoff === undefined) throw error;
+        retry += 1;
+        await this.options.sleep(backoff);
+        request = { ...request, sentAt: this.options.now().toISOString() };
+      }
+    }
+  }
+
+  private request(
+    draft: HeartbeatDraft,
+    generation: number,
+    sequence: number,
+  ): HeartbeatRequest {
+    return {
+      ...draft,
+      generation,
+      sequence,
+      idempotencyKey: this.options.id(),
+      sentAt: this.options.now().toISOString(),
+    };
+  }
+}
+
+const BACKOFF_MILLISECONDS = [5_000, 15_000, 30_000, 60_000] as const;
+
+function isAborted(signal: AbortSignal): boolean {
+  return signal.aborted;
+}

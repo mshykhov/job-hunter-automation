@@ -1,0 +1,11 @@
+{
+  "generation": 1,
+  "sequence": 1,
+  "idempotencyKey": "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce1f",
+  "sentAt": "2026-08-18T08:00:00Z",
+  "launcherVersion": "0.1.0",
+  "components": {},
+  "probes": {},
+  "codexInputTokens": 0,
+  "codexOutputTokens": 0
+}

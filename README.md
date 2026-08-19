@@ -27,6 +27,12 @@ npm run rulesync:verify
 Build output is written to `dist/`. See [the documentation map](docs/README.md) for
 architecture, operating guidance, exact contracts, and active plans.
 
+Runtime configuration is environment-only. The required variable names and safe
+local validation rules are documented in
+[Runtime configuration](docs/reference/runtime-configuration.md). Credentials and
+tokens remain in memory or protected deployment storage and must not be passed as
+command-line arguments.
+
 ## Agent configuration
 
 `.rulesync/` is the shared canonical source. `AGENTS.md`, `CLAUDE.md`, and target
