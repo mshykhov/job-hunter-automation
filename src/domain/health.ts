@@ -57,6 +57,15 @@ export interface ProbeSnapshot {
   lastSuccessAt?: string | null;
 }
 
+export interface ProbeComponentResult {
+  component: AutomationComponent;
+  state: AutomationState;
+  reason: AutomationReason;
+  checkedAt: string;
+  durationMs: number;
+  probeVersion: string;
+}
+
 export interface HeartbeatDraft {
   launcherVersion: string;
   components: Partial<Record<AutomationComponent, ComponentSnapshot>>;

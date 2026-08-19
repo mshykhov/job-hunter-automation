@@ -5,3 +5,4 @@ reason vocabularies, and versioned tool contracts. They are living documentation
 must match executable schemas and tests.
 
 - [Runtime configuration](runtime-configuration.md)
+- [Browser Runner MCP](browser-runner-mcp.md)
