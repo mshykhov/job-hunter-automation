@@ -3,6 +3,27 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("systemd package", () => {
+  it("bootstraps a pristine Ubuntu host at an exact repository revision", async () => {
+    const [versions, bootstrap] = await Promise.all([
+      readFile("packaging/versions.env", "utf8"),
+      readFile("packaging/bootstrap.sh", "utf8"),
+    ]);
+
+    expect(versions).toContain("NODE_VERSION=24.19.0");
+    expect(versions).toContain("NODE_LINUX_X64_SHA256=");
+    expect(versions).toContain("NODE_LINUX_ARM64_SHA256=");
+    expect(bootstrap).toContain("AUTOMATION_REVISION");
+    expect(bootstrap).toContain(
+      'fetch --depth=1 origin "$AUTOMATION_REVISION"',
+    );
+    expect(bootstrap).toContain("checkout --detach FETCH_HEAD");
+    expect(bootstrap).toContain(
+      'test "$(git -C "$checkout_root" rev-parse HEAD)" = "$AUTOMATION_REVISION"',
+    );
+    expect(bootstrap).toContain('"$checkout_root/packaging/install.sh"');
+    expect(bootstrap).not.toContain("systemctl enable");
+  });
+
   it("pins runtime versions and hardens the service", async () => {
     const [versions, service, installer] = await Promise.all([
       readFile("packaging/versions.env", "utf8"),

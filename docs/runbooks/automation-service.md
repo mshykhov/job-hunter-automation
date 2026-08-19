@@ -9,17 +9,20 @@ owner can manage delegation or read status.
 
 ## Install
 
-Provision Ubuntu 24.04 with Node.js 24, clone the pinned repository revision, and
-run as root:
+Provision a clean Ubuntu 24.04 instance. Copy `packaging/bootstrap.sh` and
+`packaging/versions.env` into one temporary directory on the instance, then run
+the bootstrap as root with the exact deployed commit:
 
 ```sh
-packaging/install.sh
+AUTOMATION_REVISION=<40-character-commit-sha> ./bootstrap.sh
 ```
 
-The installer verifies the Node.js and Playwright pins, builds and tests the
-runtime, installs the pinned Codex CLI and Chrome dependencies, creates the
-non-login `job-hunter-automation` account, and installs the systemd unit. It does
-not enable or start the service.
+The bootstrap installs the checksum-pinned Node.js runtime, clones only the exact
+requested repository revision, and invokes `packaging/install.sh`. The installer
+verifies the Node.js and Playwright pins, builds and tests the runtime, installs
+the pinned Codex CLI and Chrome dependencies, creates the non-login
+`job-hunter-automation` account, and installs the systemd unit. Re-running the
+same revision is safe. Neither script enables or starts the service.
 
 Populate `/etc/job-hunter-automation/runner.env` without printing values and keep
 it owned by root with mode `0600`. Confirm names only:

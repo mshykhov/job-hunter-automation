@@ -12,9 +12,10 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-node_major="$(node --version | sed -E 's/^v([0-9]+).*/\1/')"
-if [[ "$node_major" != "$NODE_MAJOR" ]]; then
-  echo "Node.js $NODE_MAJOR is required" >&2
+node_version="$(node --version)"
+node_major="$(sed -E 's/^v([0-9]+).*/\1/' <<<"$node_version")"
+if [[ "$node_major" != "$NODE_MAJOR" || "$node_version" != "v$NODE_VERSION" ]]; then
+  echo "Node.js $NODE_VERSION is required" >&2
   exit 1
 fi
 
