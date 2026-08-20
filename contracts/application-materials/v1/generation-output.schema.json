@@ -12,7 +12,7 @@
     "recruiterMessage"
   ],
   "properties": {
-    "schemaVersion": { "const": "application-materials/v1" },
+    "schemaVersion": { "type": "string", "const": "application-materials/v1" },
     "summaryVariantIds": {
       "type": "array",
       "minItems": 2,

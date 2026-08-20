@@ -95,9 +95,14 @@ describe("application materials contracts", () => {
     const schema = JSON.parse(await readFile(outputSchemaUrl, "utf8")) as {
       additionalProperties?: boolean;
       required?: string[];
+      properties?: { schemaVersion?: { type?: string; const?: string } };
     };
 
     expect(schema.additionalProperties).toBe(false);
+    expect(schema.properties?.schemaVersion).toEqual({
+      type: "string",
+      const: MATERIALS_SCHEMA_VERSION,
+    });
     expect(schema.required).toEqual([
       "schemaVersion",
       "summaryVariantIds",
