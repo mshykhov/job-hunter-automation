@@ -2,7 +2,7 @@
 
 Private-runtime execution layer for [Job Hunter](https://github.com/mshykhov/job-hunter).
 It runs deterministic health probes, a local Playwright-backed Browser Runner MCP,
-and bounded Codex canaries. Durable state, owner policy, and audit data remain in
+bounded Codex canaries, and an opt-in private application-material compiler. Durable state, owner policy, and audit data remain in
 the Job Hunter API and PostgreSQL.
 
 The repository is public, but deployed access is single-owner. Browser profiles,
@@ -11,8 +11,9 @@ page data are runtime secrets and are never committed.
 
 ## Status
 
-The first delivery slice implements health reporting only. It does not read vacancy
-queues, fill external forms, or submit applications.
+The runner can compile a truthful ATS-aligned CV, short cover letter, and recruiter message from an
+approved private fact catalog. Generation uses the local Codex subscription login with Terra by
+default and bounded Sol repair or explicit improvement. It never submits applications.
 
 ## Development
 

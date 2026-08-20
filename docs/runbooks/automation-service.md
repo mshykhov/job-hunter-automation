@@ -2,8 +2,8 @@
 
 ## Safety boundary
 
-This slice reports health only. It does not read vacancy queues, navigate job
-sites, fill forms, or submit applications. The public repository contains no
+The runner reports health and may compile private application-material requests when explicitly
+enabled. It does not navigate job sites, fill forms, or submit applications. The public repository contains no
 credentials. The API binds the runner identity to one configured owner; only that
 owner can manage delegation or read status.
 
@@ -42,6 +42,11 @@ sudo chmod 0700 /var/lib/job-hunter-automation/codex
 sudo find /var/lib/job-hunter-automation/codex -type f -exec chmod 0600 {} +
 ```
 
+To enable application-material compilation, install the private `cv-materials` package, copy the
+immutable profile bundle to the protected materials directory, import that bundle through the
+owner-only API endpoint, and set the `MATERIALS_*` variables from `runner.env.example`. Keep the
+feature disabled if any bundle hash or profile version differs.
+
 Then start the service:
 
 ```sh
@@ -60,8 +65,9 @@ sudo journalctl -u job-hunter-automation.service --since '-10 minutes' --no-page
 
 Use the owner-only Job Hunter Automation page to verify fresh LAUNCHER, API,
 DATABASE, CHROME, PLAYWRIGHT, BROWSER_MCP, JOB_HUNTER_MCP, and CODEX components.
-The first heartbeat runs preflight and canary; later heartbeats reuse snapshots
-until the server-issued interval expires.
+The first heartbeat runs preflight and canary; later heartbeats reuse snapshots until the
+server-issued interval expires. With materials enabled, create a package from the owner UI and verify
+that one immutable revision reaches `READY` or the explicit base-CV fallback state.
 
 ## Recover
 
