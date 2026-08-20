@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "application-materials/v1/candidate-profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "identity",
+    "contacts",
+    "experience",
+    "factCatalogVersion",
+    "privateMatchingFacts",
+    "forbiddenRenderFields",
+    "protectedTerms",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "application-materials/v1" },
+    "identity": { "type": "object" },
+    "contacts": { "type": "array", "minItems": 1 },
+    "experience": { "type": "array", "minItems": 1 },
+    "factCatalogVersion": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "privateMatchingFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["englishLevel", "renderable"],
+      "properties": {
+        "englishLevel": { "const": "C1" },
+        "renderable": { "const": false }
+      }
+    },
+    "forbiddenRenderFields": {
+      "type": "array",
+      "contains": { "const": "education" }
+    },
+    "protectedTerms": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object" }
+  }
+}

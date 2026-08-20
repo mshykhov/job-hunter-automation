@@ -1,0 +1,122 @@
+{
+  "candidateProfile": {
+    "schemaVersion": "application-materials/v1",
+    "identity": {
+      "name": "Alex Example",
+      "title": "Senior Backend Engineer (Kotlin, Java, Spring Boot)",
+      "tagline": "Open to remote work"
+    },
+    "contacts": [
+      {
+        "label": "Email",
+        "text": "alex@example.invalid",
+        "url": "mailto:alex@example.invalid"
+      }
+    ],
+    "experience": [
+      {
+        "id": "exp-example",
+        "title": "Backend Engineer",
+        "years": "2021 - 2026",
+        "company": "Example Co",
+        "domain": "Developer Tools"
+      }
+    ],
+    "factCatalogVersion": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "privateMatchingFacts": { "englishLevel": "C1", "renderable": false },
+    "forbiddenRenderFields": ["age", "dateOfBirth", "education", "languages"],
+    "protectedTerms": ["Protected Client"],
+    "metadata": {
+      "author": "Alex Example",
+      "docTitle": "Alex Example - Senior Backend Engineer"
+    }
+  },
+  "factCatalog": {
+    "schemaVersion": "application-materials/v1",
+    "summary": [
+      {
+        "id": "summary-example",
+        "claimAnchors": ["backend systems"],
+        "technologies": ["Kotlin"],
+        "metrics": ["5 years"],
+        "properNouns": [],
+        "variants": [
+          {
+            "id": "summary-example-base",
+            "text": "Five years building Kotlin backend systems.",
+            "approved": true
+          }
+        ]
+      },
+      {
+        "id": "summary-domain",
+        "claimAnchors": ["developer tooling"],
+        "technologies": [],
+        "metrics": [],
+        "properNouns": [],
+        "variants": [
+          {
+            "id": "summary-domain-base",
+            "text": "Experience building developer tooling.",
+            "approved": true
+          }
+        ]
+      }
+    ],
+    "qualifications": [
+      {
+        "id": "qualification-languages",
+        "label": "Programming Languages",
+        "items": "Kotlin, Java"
+      },
+      {
+        "id": "qualification-frameworks",
+        "label": "Frameworks & Libraries",
+        "items": "Spring Boot"
+      },
+      {
+        "id": "qualification-storage",
+        "label": "Databases & Storage",
+        "items": "PostgreSQL"
+      },
+      {
+        "id": "qualification-testing",
+        "label": "Testing",
+        "items": "JUnit, Testcontainers"
+      }
+    ],
+    "experience": [
+      {
+        "experienceId": "exp-example",
+        "facts": [
+          {
+            "id": "fact-example",
+            "claimAnchors": ["built", "APIs"],
+            "technologies": ["Kotlin", "Spring Boot"],
+            "metrics": [],
+            "properNouns": [],
+            "variants": [
+              {
+                "id": "fact-example-base",
+                "text": "Built Kotlin and Spring Boot APIs for developer tooling.",
+                "approved": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "writingStyle": {
+    "schemaVersion": "application-materials/v1",
+    "voiceRules": ["Write direct C1 English."],
+    "examples": [
+      {
+        "id": "example-cover",
+        "kind": "cover_letter",
+        "origin": "system_seed",
+        "text": "My Kotlin backend experience aligns closely with this role. I would be glad to discuss the problems your team is solving."
+      }
+    ]
+  }
+}

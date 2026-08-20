@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "application-materials/v1/generation-output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "summaryVariantIds",
+    "qualificationIds",
+    "experience",
+    "coverLetter",
+    "recruiterMessage"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "application-materials/v1" },
+    "summaryVariantIds": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 5,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "qualificationIds": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "experience": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["experienceId", "selectedVariants"],
+        "properties": {
+          "experienceId": { "type": "string", "minLength": 1 },
+          "selectedVariants": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["factId", "variantId"],
+              "properties": {
+                "factId": { "type": "string", "minLength": 1 },
+                "variantId": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "coverLetter": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "sourceFactIds", "requiredByVacancy"],
+          "properties": {
+            "text": { "type": "string", "minLength": 1 },
+            "sourceFactIds": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "requiredByVacancy": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "recruiterMessage": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "sourceFactIds"],
+          "properties": {
+            "text": { "type": "string", "minLength": 1 },
+            "sourceFactIds": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
