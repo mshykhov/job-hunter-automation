@@ -36,14 +36,7 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "enum": [
-          "CV_SOURCE",
-          "CV_DOCX",
-          "CV_PDF",
-          "COVER_LETTER_TEXT",
-          "RECRUITER_MESSAGE_TEXT",
-          "VALIDATION_REPORT"
-        ]
+        "enum": ["CV_DOCX", "CV_PDF", "COVER_LETTER", "RECRUITER_MESSAGE"]
       }
     },
     "coverLetterPolicy": {

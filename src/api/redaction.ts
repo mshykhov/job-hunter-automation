@@ -3,6 +3,15 @@ const SENSITIVE_KEYS = new Set([
   "password",
   "token",
   "cookie",
+  "candidateprofile",
+  "factcatalog",
+  "writingstyle",
+  "vacancy",
+  "vacancydescription",
+  "coverletter",
+  "recruitermessage",
+  "derivedsource",
+  "content",
 ]);
 
 export function redactSensitive(value: unknown): unknown {

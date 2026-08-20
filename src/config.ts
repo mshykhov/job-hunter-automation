@@ -21,6 +21,21 @@ export interface AutomationConfig {
     preflightSeconds: number;
     codexSeconds: number;
   };
+  materials?: MaterialAutomationConfig;
+}
+
+export interface MaterialAutomationConfig {
+  workerId: string;
+  workRoot: string;
+  rendererCommand: string;
+  cvProfilePath: string;
+  baseDocxPath: string;
+  basePdfPath: string;
+  outputSchemaPath: string;
+  pollIntervalMs: number;
+  leaseHeartbeatMs: number;
+  generationTimeoutMs: number;
+  renderTimeoutMs: number;
 }
 
 export function loadConfig(
@@ -44,6 +59,10 @@ export function loadConfig(
     "AUTHENTIK_TOKEN_URL",
   );
 
+  const materials =
+    env.MATERIALS_ENABLED?.trim().toLowerCase() === "true"
+      ? loadMaterialsConfig(env)
+      : undefined;
   return {
     apiUrl,
     tokenUrl,
@@ -69,7 +88,46 @@ export function loadConfig(
         "CODEX_INTERVAL_SECONDS",
       ),
     },
+    ...(materials === undefined ? {} : { materials }),
   };
+}
+
+function loadMaterialsConfig(env: NodeJS.ProcessEnv): MaterialAutomationConfig {
+  return {
+    workerId: required(env, "MATERIALS_WORKER_ID"),
+    workRoot: required(env, "MATERIALS_WORK_ROOT"),
+    rendererCommand: required(env, "MATERIALS_RENDERER_COMMAND"),
+    cvProfilePath: required(env, "MATERIALS_CV_PROFILE_PATH"),
+    baseDocxPath: required(env, "MATERIALS_BASE_DOCX_PATH"),
+    basePdfPath: required(env, "MATERIALS_BASE_PDF_PATH"),
+    outputSchemaPath: required(env, "MATERIALS_OUTPUT_SCHEMA_PATH"),
+    pollIntervalMs: positiveInteger(
+      env.MATERIALS_POLL_INTERVAL_MS,
+      15_000,
+      "MATERIALS_POLL_INTERVAL_MS",
+    ),
+    leaseHeartbeatMs: positiveInteger(
+      env.MATERIALS_LEASE_HEARTBEAT_MS,
+      60_000,
+      "MATERIALS_LEASE_HEARTBEAT_MS",
+    ),
+    generationTimeoutMs: positiveInteger(
+      env.MATERIALS_GENERATION_TIMEOUT_MS,
+      180_000,
+      "MATERIALS_GENERATION_TIMEOUT_MS",
+    ),
+    renderTimeoutMs: positiveInteger(
+      env.MATERIALS_RENDER_TIMEOUT_MS,
+      120_000,
+      "MATERIALS_RENDER_TIMEOUT_MS",
+    ),
+  };
+}
+
+function required(env: NodeJS.ProcessEnv, name: string): string {
+  const value = env[name]?.trim();
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
 }
 
 function requireSecureUrl(value: string, name: string): string {

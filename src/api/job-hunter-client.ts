@@ -3,7 +3,20 @@ import {
   type HeartbeatRequest,
   type HeartbeatResponse,
 } from "../domain/health.js";
+import {
+  candidateProfileSchema,
+  coverLetterPolicySchema,
+  factCatalogSchema,
+  materialKindSchema,
+  writingStyleSchema,
+  type CandidateProfile,
+  type CoverLetterPolicy,
+  type FactCatalog,
+  type MaterialKind,
+  type WritingStyle,
+} from "../materials/contracts.js";
 import type { TokenProvider } from "./token-provider.js";
+import { z } from "zod";
 
 export interface RunnerSession {
   runnerKey: string;
@@ -11,6 +24,30 @@ export interface RunnerSession {
   heartbeatIntervalSeconds: number;
   preflightIntervalSeconds: number;
   codexCanaryIntervalSeconds: number;
+}
+
+export interface MaterialClaim {
+  requestId: string;
+  leaseToken: string;
+  leaseExpiresAt: string;
+  vacancy: Record<string, unknown>;
+  candidateProfile: CandidateProfile;
+  factCatalog: FactCatalog;
+  writingStyle: WritingStyle;
+  requestedKinds: MaterialKind[];
+  coverLetterPolicy: CoverLetterPolicy;
+  mode: "TERRA" | "SOL_IMPROVE" | "USER_EDIT_VALIDATION";
+  route: "TERRA" | "SOL_IMPROVE";
+}
+
+export interface MaterialCompletionUpload {
+  status: "READY" | "READY_WITH_FALLBACK" | "BLOCKED";
+  origin: "GENERATED" | "USER_EDITED" | "BASE_FALLBACK";
+  generatorModel?: string;
+  rendererVersion: string;
+  manifest: Record<string, unknown>;
+  artifacts: Partial<Record<MaterialKind, Uint8Array>>;
+  artifactSha256: Partial<Record<MaterialKind, string>>;
 }
 
 export class UnauthorizedError extends Error {
@@ -55,6 +92,87 @@ export class JobHunterClient {
     return body;
   }
 
+  async claimMaterial(workerId: string): Promise<MaterialClaim | null> {
+    const response = await this.request("/automation/materials/claims", {
+      method: "POST",
+      body: JSON.stringify({ workerId }),
+    });
+    if (response.status === 204) return null;
+    return materialClaimSchema.parse(await response.json());
+  }
+
+  async heartbeatMaterial(
+    requestId: string,
+    leaseToken: string,
+  ): Promise<string> {
+    const response = await this.request(
+      `/automation/materials/${requestId}/heartbeat`,
+      {
+        method: "POST",
+        body: JSON.stringify({ leaseToken }),
+      },
+    );
+    return materialHeartbeatSchema.parse(await response.json()).leaseExpiresAt;
+  }
+
+  async failMaterial(
+    requestId: string,
+    leaseToken: string,
+    reasonCode: string,
+    retryable: boolean,
+  ): Promise<void> {
+    await this.request(`/automation/materials/${requestId}/fail`, {
+      method: "POST",
+      body: JSON.stringify({ leaseToken, reasonCode, retryable }),
+    });
+  }
+
+  async completeMaterial(
+    claim: Pick<MaterialClaim, "requestId" | "leaseToken">,
+    completion: MaterialCompletionUpload,
+  ): Promise<{ revisionId: string; revisionNumber: number }> {
+    const form = new FormData();
+    form.set(
+      "metadata",
+      new Blob(
+        [
+          JSON.stringify({
+            leaseToken: claim.leaseToken,
+            status: completion.status,
+            origin: completion.origin,
+            generatorModel: completion.generatorModel,
+            rendererVersion: completion.rendererVersion,
+            manifest: completion.manifest,
+            artifactSha256: completion.artifactSha256,
+          }),
+        ],
+        { type: "application/json" },
+      ),
+      "metadata.json",
+    );
+    const names: Record<MaterialKind, string> = {
+      CV_DOCX: "cvDocx",
+      CV_PDF: "cvPdf",
+      COVER_LETTER: "coverLetter",
+      RECRUITER_MESSAGE: "recruiterMessage",
+    };
+    for (const [kind, content] of Object.entries(completion.artifacts)) {
+      const materialKind = materialKindSchema.parse(kind);
+      form.set(
+        names[materialKind],
+        new Blob([Uint8Array.from(content)], {
+          type: mediaType(materialKind),
+        }),
+        filename(materialKind),
+      );
+    }
+    const response = await this.request(
+      `/automation/materials/${claim.requestId}/complete`,
+      { method: "POST", body: form },
+    );
+    return materialCompletionResponseSchema.parse(await response.json());
+  }
+
   private async request(path: string, init: RequestInit): Promise<Response> {
     const token = await this.tokenProvider.getAccessToken();
     const response = await this.fetchImplementation(
@@ -64,7 +182,7 @@ export class JobHunterClient {
         headers: {
           authorization: `Bearer ${token}`,
           accept: "application/json",
-          ...(init.body === undefined
+          ...(init.body === undefined || init.body instanceof FormData
             ? {}
             : { "content-type": "application/json" }),
         },
@@ -81,6 +199,49 @@ export class JobHunterClient {
       );
     return response;
   }
+}
+
+const materialClaimSchema = z
+  .object({
+    requestId: z.string().uuid(),
+    leaseToken: z.string().uuid(),
+    leaseExpiresAt: z.string().datetime({ offset: true }),
+    vacancy: z.record(z.unknown()),
+    candidateProfile: candidateProfileSchema,
+    factCatalog: factCatalogSchema,
+    writingStyle: writingStyleSchema,
+    requestedKinds: z.array(materialKindSchema),
+    coverLetterPolicy: coverLetterPolicySchema,
+    mode: z.enum(["TERRA", "SOL_IMPROVE", "USER_EDIT_VALIDATION"]),
+    route: z.enum(["TERRA", "SOL_IMPROVE"]),
+  })
+  .strict();
+
+const materialHeartbeatSchema = z
+  .object({ leaseExpiresAt: z.string().datetime({ offset: true }) })
+  .strict();
+
+const materialCompletionResponseSchema = z
+  .object({
+    revisionId: z.string().uuid(),
+    revisionNumber: z.number().int().positive(),
+  })
+  .strict();
+
+function mediaType(kind: MaterialKind): string {
+  if (kind === "CV_PDF") return "application/pdf";
+  if (kind === "CV_DOCX")
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  return "text/plain";
+}
+
+function filename(kind: MaterialKind): string {
+  return {
+    CV_DOCX: "cv.docx",
+    CV_PDF: "cv.pdf",
+    COVER_LETTER: "cover-letter.txt",
+    RECRUITER_MESSAGE: "recruiter-message.txt",
+  }[kind];
 }
 
 function isRunnerSession(value: unknown): value is RunnerSession {

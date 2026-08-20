@@ -5,6 +5,9 @@ import { JobHunterClient } from "./api/job-hunter-client.js";
 import { AuthentikTokenProvider } from "./api/token-provider.js";
 import { runCodexCanary } from "./codex/codex-probe.js";
 import { loadConfig } from "./config.js";
+import { CodexMaterialGenerator } from "./materials/codex-generator.js";
+import { MaterialWorker } from "./materials/material-worker.js";
+import { MaterialRenderer } from "./materials/renderer.js";
 import { probeBrowserRunner, probeJobHunterMcp } from "./probes/mcp-probe.js";
 import { runPreflight } from "./probes/preflight.js";
 import { RuntimeHealthCollector } from "./runner/health-collector.js";
@@ -97,8 +100,37 @@ export function createAutomationLauncher(
   const loop = new HeartbeatLoop(client, (session, signal) =>
     collector.collect(session, signal),
   );
+  const materialWorker =
+    config.materials === undefined
+      ? undefined
+      : new MaterialWorker(
+          {
+            workerId: config.materials.workerId,
+            workRoot: config.materials.workRoot,
+            pollIntervalMs: config.materials.pollIntervalMs,
+            leaseHeartbeatMs: config.materials.leaseHeartbeatMs,
+            baseDocxPath: config.materials.baseDocxPath,
+            basePdfPath: config.materials.basePdfPath,
+          },
+          client,
+          new CodexMaterialGenerator({
+            codexHome: config.codexHome,
+            outputSchemaPath: config.materials.outputSchemaPath,
+            timeoutMs: config.materials.generationTimeoutMs,
+          }),
+          new MaterialRenderer({
+            command: config.materials.rendererCommand,
+            profilePath: config.materials.cvProfilePath,
+            timeoutMs: config.materials.renderTimeoutMs,
+          }),
+        );
   return new AutomationLauncher(
-    (signal) => loop.run(signal),
+    async (signal) => {
+      await Promise.all([
+        loop.run(signal),
+        ...(materialWorker === undefined ? [] : [materialWorker.run(signal)]),
+      ]);
+    },
     () => Promise.resolve(),
   );
 }

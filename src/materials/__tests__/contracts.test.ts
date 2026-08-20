@@ -83,7 +83,7 @@ describe("application materials contracts", () => {
       candidateProfile: fixture.candidateProfile,
       factCatalog: fixture.factCatalog,
       writingStyle: fixture.writingStyle,
-      requestedKinds: ["CV_PDF", "CV_DOCX", "COVER_LETTER_TEXT"],
+      requestedKinds: ["CV_PDF", "CV_DOCX", "COVER_LETTER"],
       coverLetterPolicy: "OPTIONAL_STANDARD",
       mode: "TERRA",
     });

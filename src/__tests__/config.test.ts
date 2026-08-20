@@ -41,4 +41,29 @@ describe("loadConfig", () => {
       }).apiUrl,
     ).toBe("http://127.0.0.1:8080");
   });
+
+  it("loads private material paths only when the compiler is enabled", () => {
+    expect(loadConfig(REQUIRED_ENV).materials).toBeUndefined();
+    expect(() =>
+      loadConfig({ ...REQUIRED_ENV, MATERIALS_ENABLED: "true" }),
+    ).toThrow(/MATERIALS_WORKER_ID/);
+
+    expect(
+      loadConfig({
+        ...REQUIRED_ENV,
+        MATERIALS_ENABLED: "true",
+        MATERIALS_WORKER_ID: "local-runner",
+        MATERIALS_WORK_ROOT: "/private/materials/work",
+        MATERIALS_RENDERER_COMMAND: "/private/cv-materials-render",
+        MATERIALS_CV_PROFILE_PATH: "/private/profile.yaml",
+        MATERIALS_BASE_DOCX_PATH: "/private/base-cv.docx",
+        MATERIALS_BASE_PDF_PATH: "/private/base-cv.pdf",
+        MATERIALS_OUTPUT_SCHEMA_PATH: "/runtime/generation-output.schema.json",
+      }).materials,
+    ).toMatchObject({
+      workerId: "local-runner",
+      pollIntervalMs: 15_000,
+      generationTimeoutMs: 180_000,
+    });
+  });
 });

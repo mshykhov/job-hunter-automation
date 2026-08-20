@@ -149,12 +149,10 @@ export const selectedVariantSchema = z
   .strict();
 
 export const materialKindSchema = z.enum([
-  "CV_SOURCE",
   "CV_DOCX",
   "CV_PDF",
-  "COVER_LETTER_TEXT",
-  "RECRUITER_MESSAGE_TEXT",
-  "VALIDATION_REPORT",
+  "COVER_LETTER",
+  "RECRUITER_MESSAGE",
 ]);
 
 export const coverLetterPolicySchema = z.enum([
@@ -221,3 +219,4 @@ export type WritingStyle = z.infer<typeof writingStyleSchema>;
 export type GenerationOutput = z.infer<typeof generationOutputSchema>;
 export type GenerationInput = z.infer<typeof generationInputSchema>;
 export type MaterialKind = z.infer<typeof materialKindSchema>;
+export type CoverLetterPolicy = z.infer<typeof coverLetterPolicySchema>;
