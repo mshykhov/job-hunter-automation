@@ -31,6 +31,28 @@ created. Heartbeat retries preserve generation, sequence, and idempotency key wh
 refreshing `sentAt` so bounded retry backoff remains inside the API clock-skew
 contract.
 
+## Application-material compiler
+
+Set `MATERIALS_ENABLED=true` only on the private runner after installing the CV renderer and importing
+the matching immutable profile bundle into the API.
+
+| Variable                          |  Default | Purpose                                        |
+| --------------------------------- | -------: | ---------------------------------------------- |
+| `MATERIALS_WORKER_ID`             | required | Stable lease-worker identifier                 |
+| `MATERIALS_WORK_ROOT`             | required | Private ephemeral compilation directory        |
+| `MATERIALS_RENDERER_COMMAND`      | required | Absolute `cv-materials-render` executable path |
+| `MATERIALS_CV_PROFILE_PATH`       | required | Profile catalog matching the imported version  |
+| `MATERIALS_BASE_DOCX_PATH`        | required | Validated fallback DOCX                        |
+| `MATERIALS_BASE_PDF_PATH`         | required | Validated fallback PDF                         |
+| `MATERIALS_OUTPUT_SCHEMA_PATH`    | required | Pinned Codex structured-output schema          |
+| `MATERIALS_POLL_INTERVAL_MS`      |  `15000` | Queue poll interval                            |
+| `MATERIALS_LEASE_HEARTBEAT_MS`    |  `60000` | Active lease heartbeat interval                |
+| `MATERIALS_GENERATION_TIMEOUT_MS` | `180000` | Per-model generation timeout                   |
+| `MATERIALS_RENDER_TIMEOUT_MS`     | `120000` | Isolated CV render timeout                     |
+
+The worker uses the existing Codex subscription login. Terra is the default route; Sol runs only for
+one bounded repair or an explicit owner-requested improvement. It never submits an application.
+
 ## Authentication request
 
 The token provider sends an `application/x-www-form-urlencoded` client-credentials

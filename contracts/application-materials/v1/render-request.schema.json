@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "application-materials/v1/render-request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "candidateProfile", "factCatalog", "selection"],
+  "properties": {
+    "schemaVersion": { "const": "application-materials/v1" },
+    "candidateProfile": { "$ref": "candidate-profile.schema.json" },
+    "factCatalog": { "$ref": "fact-catalog.schema.json" },
+    "selection": { "$ref": "generation-output.schema.json" }
+  }
+}

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { HeartbeatRequest } from "../../domain/health.js";
+import { validGenerationInput } from "../../materials/__tests__/fixtures.js";
 import {
   JobHunterClient,
   StaleGenerationError,
@@ -88,5 +89,55 @@ describe("JobHunterClient", () => {
     await expect(client.sendHeartbeat(heartbeat)).rejects.toBeInstanceOf(
       StaleGenerationError,
     );
+  });
+
+  it("returns null when no material request is queued", async () => {
+    const client = new JobHunterClient(
+      "https://api.example.test",
+      tokenProvider,
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response(null, { status: 204 })),
+    );
+
+    await expect(client.claimMaterial("local-runner")).resolves.toBeNull();
+  });
+
+  it("uploads completion as multipart without overriding its boundary", async () => {
+    const input = validGenerationInput();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          revisionId: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce2f",
+          revisionNumber: 1,
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = new JobHunterClient(
+      "https://api.example.test",
+      tokenProvider,
+      fetchMock,
+    );
+
+    await client.completeMaterial(
+      {
+        requestId: input.requestId,
+        leaseToken: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce3f",
+      },
+      {
+        status: "READY",
+        origin: "GENERATED",
+        generatorModel: "gpt-5.6-terra",
+        rendererVersion: "cv-materials/test",
+        manifest: { pageCount: 2 },
+        artifacts: { CV_PDF: Buffer.from("pdf") },
+        artifactSha256: { CV_PDF: "a".repeat(64) },
+      },
+    );
+
+    const request = fetchMock.mock.calls[0]?.[1];
+    expect(request?.body).toBeInstanceOf(FormData);
+    expect(new Headers(request?.headers).has("content-type")).toBe(false);
   });
 });

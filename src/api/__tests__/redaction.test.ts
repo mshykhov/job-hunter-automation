@@ -26,4 +26,20 @@ describe("redactSensitive", () => {
       },
     });
   });
+
+  it("recursively removes private material bodies", () => {
+    expect(
+      redactSensitive({
+        requestId: "safe-id",
+        candidateProfile: { identity: { name: "Private" } },
+        vacancy: { description: "Private vacancy" },
+        artifacts: [{ content: Buffer.from("private bytes") }],
+      }),
+    ).toEqual({
+      requestId: "safe-id",
+      candidateProfile: "[REDACTED]",
+      vacancy: "[REDACTED]",
+      artifacts: [{ content: "[REDACTED]" }],
+    });
+  });
 });
