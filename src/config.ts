@@ -62,6 +62,7 @@ export function loadConfig(
   const tokenUrl = requireSecureUrl(
     values.AUTHENTIK_TOKEN_URL ?? "",
     "AUTHENTIK_TOKEN_URL",
+    false,
   );
 
   const materials =
@@ -158,7 +159,11 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
   return value;
 }
 
-function requireSecureUrl(value: string, name: string): string {
+function requireSecureUrl(
+  value: string,
+  name: string,
+  trimTrailingSlash = true,
+): string {
   let url: URL;
   try {
     url = new URL(value);
@@ -172,7 +177,7 @@ function requireSecureUrl(value: string, name: string): string {
   if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
     throw new Error(`${name} must use HTTPS unless it points to loopback`);
   }
-  return value.replace(/\/$/, "");
+  return trimTrailingSlash ? value.replace(/\/$/, "") : value;
 }
 
 function positiveInteger(

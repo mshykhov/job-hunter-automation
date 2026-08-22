@@ -64,6 +64,18 @@ describe("loadConfig", () => {
     ).toBe("http://127.0.0.1:8080");
   });
 
+  it("preserves the trailing slash required by the Authentik token endpoint", () => {
+    expect(loadConfig(REQUIRED_ENV).tokenUrl).toBe(
+      "https://auth.example.test/token",
+    );
+    expect(
+      loadConfig({
+        ...REQUIRED_ENV,
+        AUTHENTIK_TOKEN_URL: "https://auth.example.test/application/o/token/",
+      }).tokenUrl,
+    ).toBe("https://auth.example.test/application/o/token/");
+  });
+
   it("loads private material paths only when the compiler is enabled", () => {
     expect(loadConfig(REQUIRED_ENV).materials).toBeUndefined();
     expect(() =>
