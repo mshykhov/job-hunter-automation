@@ -20,43 +20,56 @@ export function validateGeneration(
   output: GenerationOutput,
 ): ValidationResult {
   const findings: ValidationFinding[] = [];
-  const summaryVariants = variantIndex(input.factCatalog.summary);
-  for (const variantId of output.summaryVariantIds)
-    if (!summaryVariants.has(variantId))
-      findings.push(hard("UNKNOWN_SUMMARY_VARIANT", "CV"));
+  const wantsCv = input.requestedKinds.includes("CV_DOCX");
+  if (wantsCv) {
+    if (output.summaryVariantIds.length < 2)
+      findings.push(hard("CV_SUMMARY_MISSING", "CV"));
+    if (output.qualificationIds.length < 4)
+      findings.push(hard("CV_QUALIFICATIONS_MISSING", "CV"));
+    const summaryVariants = variantIndex(input.factCatalog.summary);
+    for (const variantId of output.summaryVariantIds)
+      if (!summaryVariants.has(variantId))
+        findings.push(hard("UNKNOWN_SUMMARY_VARIANT", "CV"));
 
-  const qualificationIds = new Set(
-    input.factCatalog.qualifications.map(({ id }) => id),
-  );
-  for (const qualificationId of output.qualificationIds)
-    if (!qualificationIds.has(qualificationId))
-      findings.push(hard("UNKNOWN_QUALIFICATION", "CV"));
+    const qualificationIds = new Set(
+      input.factCatalog.qualifications.map(({ id }) => id),
+    );
+    for (const qualificationId of output.qualificationIds)
+      if (!qualificationIds.has(qualificationId))
+        findings.push(hard("UNKNOWN_QUALIFICATION", "CV"));
 
-  const experienceById = new Map(
-    input.factCatalog.experience.map((experience) => [
-      experience.experienceId,
-      experience,
-    ]),
-  );
-  const lockedExperienceIds = input.candidateProfile.experience.map(
-    ({ id }) => id,
-  );
-  const selectedExperienceIds = output.experience.map(
-    ({ experienceId }) => experienceId,
-  );
-  if (!sameUniqueIds(lockedExperienceIds, selectedExperienceIds))
-    findings.push(hard("EXPERIENCE_STRUCTURE_CHANGED", "CV"));
-  for (const selection of output.experience) {
-    const experience = experienceById.get(selection.experienceId);
-    if (experience === undefined) continue;
-    const variants = variantIndex(experience.facts);
-    for (const selected of selection.selectedVariants) {
-      const fact = experience.facts.find(({ id }) => id === selected.factId);
-      if (fact === undefined || !variants.has(selected.variantId))
-        findings.push(hard("UNKNOWN_EXPERIENCE_VARIANT", "CV"));
-      else if (!fact.variants.some(({ id }) => id === selected.variantId))
-        findings.push(hard("VARIANT_FACT_MISMATCH", "CV"));
+    const experienceById = new Map(
+      input.factCatalog.experience.map((experience) => [
+        experience.experienceId,
+        experience,
+      ]),
+    );
+    const lockedExperienceIds = input.candidateProfile.experience.map(
+      ({ id }) => id,
+    );
+    const selectedExperienceIds = output.experience.map(
+      ({ experienceId }) => experienceId,
+    );
+    if (!sameUniqueIds(lockedExperienceIds, selectedExperienceIds))
+      findings.push(hard("EXPERIENCE_STRUCTURE_CHANGED", "CV"));
+    for (const selection of output.experience) {
+      const experience = experienceById.get(selection.experienceId);
+      if (experience === undefined) continue;
+      const variants = variantIndex(experience.facts);
+      for (const selected of selection.selectedVariants) {
+        const fact = experience.facts.find(({ id }) => id === selected.factId);
+        if (fact === undefined || !variants.has(selected.variantId))
+          findings.push(hard("UNKNOWN_EXPERIENCE_VARIANT", "CV"));
+        else if (!fact.variants.some(({ id }) => id === selected.variantId))
+          findings.push(hard("VARIANT_FACT_MISMATCH", "CV"));
+      }
     }
+  } else if (
+    output.summaryVariantIds.length > 0 ||
+    output.qualificationIds.length > 0 ||
+    output.experience.length > 0
+  ) {
+    findings.push(hard("UNREQUESTED_CV_SELECTION", "PACKAGE"));
   }
 
   validateMessage(

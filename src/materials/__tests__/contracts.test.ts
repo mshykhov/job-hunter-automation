@@ -51,8 +51,8 @@ describe("application materials contracts", () => {
     ).toThrow();
   });
 
-  it("requires generated CV content to select approved IDs", () => {
-    expect(() =>
+  it("accepts an empty CV selection for text-only generation", () => {
+    expect(
       generationOutputSchema.parse({
         schemaVersion: MATERIALS_SCHEMA_VERSION,
         summaryVariantIds: [],
@@ -61,7 +61,11 @@ describe("application materials contracts", () => {
         coverLetter: null,
         recruiterMessage: null,
       }),
-    ).toThrow();
+    ).toMatchObject({
+      summaryVariantIds: [],
+      qualificationIds: [],
+      experience: [],
+    });
   });
 
   it("accepts a generation request with an explicit cover-letter policy", async () => {

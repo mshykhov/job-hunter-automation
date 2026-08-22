@@ -31,6 +31,10 @@ export interface MaterialAutomationConfig {
   cvProfilePath: string;
   baseDocxPath: string;
   basePdfPath: string;
+  profileManifestPath: string;
+  candidateProfilePath: string;
+  factCatalogPath: string;
+  writingStylePath: string;
   outputSchemaPath: string;
   pollIntervalMs: number;
   leaseHeartbeatMs: number;
@@ -100,6 +104,10 @@ function loadMaterialsConfig(env: NodeJS.ProcessEnv): MaterialAutomationConfig {
     cvProfilePath: required(env, "MATERIALS_CV_PROFILE_PATH"),
     baseDocxPath: required(env, "MATERIALS_BASE_DOCX_PATH"),
     basePdfPath: required(env, "MATERIALS_BASE_PDF_PATH"),
+    profileManifestPath: required(env, "MATERIALS_PROFILE_MANIFEST_PATH"),
+    candidateProfilePath: required(env, "MATERIALS_CANDIDATE_PROFILE_PATH"),
+    factCatalogPath: required(env, "MATERIALS_FACT_CATALOG_PATH"),
+    writingStylePath: required(env, "MATERIALS_WRITING_STYLE_PATH"),
     outputSchemaPath: required(env, "MATERIALS_OUTPUT_SCHEMA_PATH"),
     pollIntervalMs: positiveInteger(
       env.MATERIALS_POLL_INTERVAL_MS,

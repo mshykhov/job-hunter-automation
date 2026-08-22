@@ -111,6 +111,10 @@ export function createAutomationLauncher(
             leaseHeartbeatMs: config.materials.leaseHeartbeatMs,
             baseDocxPath: config.materials.baseDocxPath,
             basePdfPath: config.materials.basePdfPath,
+            profileManifestPath: config.materials.profileManifestPath,
+            candidateProfilePath: config.materials.candidateProfilePath,
+            factCatalogPath: config.materials.factCatalogPath,
+            writingStylePath: config.materials.writingStylePath,
           },
           client,
           new CodexMaterialGenerator({

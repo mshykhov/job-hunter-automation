@@ -58,6 +58,10 @@ describe("loadConfig", () => {
         MATERIALS_CV_PROFILE_PATH: "/private/profile.yaml",
         MATERIALS_BASE_DOCX_PATH: "/private/base-cv.docx",
         MATERIALS_BASE_PDF_PATH: "/private/base-cv.pdf",
+        MATERIALS_PROFILE_MANIFEST_PATH: "/private/manifest.json",
+        MATERIALS_CANDIDATE_PROFILE_PATH: "/private/candidate-profile.json",
+        MATERIALS_FACT_CATALOG_PATH: "/private/fact-catalog.json",
+        MATERIALS_WRITING_STYLE_PATH: "/private/writing-style.json",
         MATERIALS_OUTPUT_SCHEMA_PATH: "/runtime/generation-output.schema.json",
       }).materials,
     ).toMatchObject({

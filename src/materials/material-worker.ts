@@ -28,9 +28,21 @@ export interface MaterialWorkerConfig {
   leaseHeartbeatMs: number;
   baseDocxPath: string;
   basePdfPath: string;
+  profileManifestPath: string;
+  candidateProfilePath: string;
+  factCatalogPath: string;
+  writingStylePath: string;
 }
 
 export interface MaterialWorkerClient {
+  importMaterialProfile(profile: {
+    manifest: Uint8Array;
+    candidateProfile: Uint8Array;
+    factCatalog: Uint8Array;
+    writingStyle: Uint8Array;
+    baseCvDocx: Uint8Array;
+    baseCvPdf: Uint8Array;
+  }): Promise<void>;
   claimMaterial(workerId: string): Promise<MaterialClaim | null>;
   heartbeatMaterial(requestId: string, leaseToken: string): Promise<string>;
   failMaterial(
@@ -75,6 +87,7 @@ export class MaterialWorker {
 
   async run(signal: AbortSignal): Promise<void> {
     await mkdir(this.config.workRoot, { recursive: true, mode: 0o700 });
+    await this.importProfile();
     while (!signal.aborted) {
       const claim = await this.client.claimMaterial(this.config.workerId);
       if (claim === null) {
@@ -172,56 +185,66 @@ export class MaterialWorker {
 
     const coverLetter = output?.coverLetter;
     const recruiterMessage = output?.recruiterMessage;
-    const requiredCoverFailed =
-      input.coverLetterPolicy !== "OPTIONAL_STANDARD" &&
+    const requestedCoverFailed =
+      input.requestedKinds.includes("COVER_LETTER") &&
       (!coverLetter || hasHard(validation, "COVER_LETTER"));
-    const cvFailed = output === null || hasHard(validation, "CV");
-    let rendered: RenderedCv;
-    let fallback = cvFailed;
-    if (output === null || hasHard(validation, "CV")) {
-      rendered = await this.baseCv();
-    } else {
-      try {
-        rendered = await this.renderer.render(output, workdir, signal);
-      } catch {
+    const requestedRecruiterMessageFailed =
+      input.requestedKinds.includes("RECRUITER_MESSAGE") &&
+      (!recruiterMessage || hasHard(validation, "RECRUITER_MESSAGE"));
+    const wantsCv = input.requestedKinds.includes("CV_DOCX");
+    let rendered: RenderedCv | undefined;
+    let fallback = false;
+    if (wantsCv) {
+      if (output === null || hasHard(validation, "CV")) {
         fallback = true;
         rendered = await this.baseCv();
-        validation = {
-          valid: false,
-          findings: [...validation.findings, hardPackage("CV_RENDER_FAILED")],
-        };
+      } else {
+        try {
+          rendered = await this.renderer.render(output, workdir, signal);
+        } catch {
+          fallback = true;
+          rendered = await this.baseCv();
+          validation = {
+            valid: false,
+            findings: [...validation.findings, hardPackage("CV_RENDER_FAILED")],
+          };
+        }
       }
     }
 
-    const artifacts: Partial<Record<MaterialKind, Uint8Array>> = {
-      CV_DOCX: rendered.docx,
-      CV_PDF: rendered.pdf,
-    };
+    const artifacts: Partial<Record<MaterialKind, Uint8Array>> = {};
+    if (rendered !== undefined) {
+      artifacts.CV_DOCX = rendered.docx;
+      artifacts.CV_PDF = rendered.pdf;
+    }
     if (
+      input.requestedKinds.includes("COVER_LETTER") &&
       coverLetter !== undefined &&
       coverLetter !== null &&
       !hasHard(validation, "COVER_LETTER")
     )
       artifacts.COVER_LETTER = Buffer.from(coverLetter.text, "utf8");
     if (
+      input.requestedKinds.includes("RECRUITER_MESSAGE") &&
       recruiterMessage !== undefined &&
       recruiterMessage !== null &&
       !hasHard(validation, "RECRUITER_MESSAGE")
     )
       artifacts.RECRUITER_MESSAGE = Buffer.from(recruiterMessage.text, "utf8");
 
-    const status = requiredCoverFailed
-      ? "BLOCKED"
-      : fallback || !validation.valid
-        ? "READY_WITH_FALLBACK"
-        : "READY";
+    const status =
+      requestedCoverFailed || requestedRecruiterMessageFailed
+        ? "BLOCKED"
+        : fallback || hasRelevantHard(validation, input)
+          ? "READY_WITH_FALLBACK"
+          : "READY";
     return {
       status,
       origin: fallback ? "BASE_FALLBACK" : "GENERATED",
       generatorModel: model,
       rendererVersion: "cv-materials/0.1.0",
       manifest: {
-        ...rendered.manifest,
+        ...(rendered?.manifest ?? { artifacts: [] }),
         schemaVersion: "application-materials/v1",
         generatorModel: model,
         validationFindings: validation.findings,
@@ -252,6 +275,32 @@ export class MaterialWorker {
         ],
       },
     };
+  }
+
+  private async importProfile(): Promise<void> {
+    const [
+      manifest,
+      candidateProfile,
+      factCatalog,
+      writingStyle,
+      baseCvDocx,
+      baseCvPdf,
+    ] = await Promise.all([
+      readFile(this.config.profileManifestPath),
+      readFile(this.config.candidateProfilePath),
+      readFile(this.config.factCatalogPath),
+      readFile(this.config.writingStylePath),
+      readFile(this.config.baseDocxPath),
+      readFile(this.config.basePdfPath),
+    ]);
+    await this.client.importMaterialProfile({
+      manifest,
+      candidateProfile,
+      factCatalog,
+      writingStyle,
+      baseCvDocx,
+      baseCvPdf,
+    });
   }
 
   private async runLeaseHeartbeat(
@@ -305,10 +354,28 @@ function shouldRepair(
   return validation.findings.some(
     ({ artifact, severity }) =>
       severity === "HARD" &&
-      (artifact === "CV" ||
+      ((artifact === "CV" && input.requestedKinds.includes("CV_DOCX")) ||
         artifact === "PACKAGE" ||
         (artifact === "COVER_LETTER" &&
-          input.coverLetterPolicy !== "OPTIONAL_STANDARD")),
+          input.requestedKinds.includes("COVER_LETTER")) ||
+        (artifact === "RECRUITER_MESSAGE" &&
+          input.requestedKinds.includes("RECRUITER_MESSAGE"))),
+  );
+}
+
+function hasRelevantHard(
+  validation: ValidationResult,
+  input: GenerationInput,
+): boolean {
+  return validation.findings.some(
+    ({ artifact, severity }) =>
+      severity === "HARD" &&
+      (artifact === "PACKAGE" ||
+        (artifact === "CV" && input.requestedKinds.includes("CV_DOCX")) ||
+        (artifact === "COVER_LETTER" &&
+          input.requestedKinds.includes("COVER_LETTER")) ||
+        (artifact === "RECRUITER_MESSAGE" &&
+          input.requestedKinds.includes("RECRUITER_MESSAGE"))),
   );
 }
 
