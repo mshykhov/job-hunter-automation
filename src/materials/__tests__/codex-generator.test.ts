@@ -40,6 +40,13 @@ describe("CodexMaterialGenerator", () => {
     expect(invocation.args).toContain("gpt-5.6-terra");
     expect(invocation.args.join(" ")).not.toContain("Senior Kotlin");
     expect(invocation.prompt).toContain("Senior Kotlin Backend Engineer");
+    expect(invocation.prompt).toContain(
+      "Open with why this specific role is interesting",
+    );
+    expect(invocation.prompt).toContain(
+      "one concrete, sourced example from the candidate's work",
+    );
+    expect(invocation.prompt).toContain('start consecutive sentences with "I"');
     expect(invocation.env).not.toHaveProperty("OPENAI_API_KEY");
     expect(invocation.args).toEqual(
       expect.arrayContaining(["--ignore-user-config", "--ignore-rules"]),
