@@ -25,6 +25,28 @@ describe("loadConfig", () => {
       preflightSeconds: 300,
       codexSeconds: 21_600,
     });
+    expect(config.healthReportingEnabled).toBe(true);
+  });
+
+  it("can disable health reporting for a materials-only runner", () => {
+    expect(
+      loadConfig({
+        ...REQUIRED_ENV,
+        HEALTH_REPORTING_ENABLED: "false",
+        MATERIALS_ENABLED: "true",
+        MATERIALS_WORKER_ID: "local-runner",
+        MATERIALS_WORK_ROOT: "/private/materials/work",
+        MATERIALS_RENDERER_COMMAND: "/private/cv-materials-render",
+        MATERIALS_CV_PROFILE_PATH: "/private/profile.yaml",
+        MATERIALS_BASE_DOCX_PATH: "/private/base-cv.docx",
+        MATERIALS_BASE_PDF_PATH: "/private/base-cv.pdf",
+        MATERIALS_PROFILE_MANIFEST_PATH: "/private/manifest.json",
+        MATERIALS_CANDIDATE_PROFILE_PATH: "/private/candidate-profile.json",
+        MATERIALS_FACT_CATALOG_PATH: "/private/fact-catalog.json",
+        MATERIALS_WRITING_STYLE_PATH: "/private/writing-style.json",
+        MATERIALS_OUTPUT_SCHEMA_PATH: "/runtime/generation-output.schema.json",
+      }).healthReportingEnabled,
+    ).toBe(false);
   });
 
   it("allows HTTP only for loopback URLs", () => {
