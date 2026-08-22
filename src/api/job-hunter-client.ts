@@ -50,6 +50,15 @@ export interface MaterialCompletionUpload {
   artifactSha256: Partial<Record<MaterialKind, string>>;
 }
 
+export interface MaterialProfileUpload {
+  manifest: Uint8Array;
+  candidateProfile: Uint8Array;
+  factCatalog: Uint8Array;
+  writingStyle: Uint8Array;
+  baseCvDocx: Uint8Array;
+  baseCvPdf: Uint8Array;
+}
+
 export class UnauthorizedError extends Error {
   constructor() {
     super("Job Hunter runner authentication failed");
@@ -99,6 +108,33 @@ export class JobHunterClient {
     });
     if (response.status === 204) return null;
     return materialClaimSchema.parse(await response.json());
+  }
+
+  async importMaterialProfile(profile: MaterialProfileUpload): Promise<void> {
+    const form = new FormData();
+    const files: [keyof MaterialProfileUpload, string, string][] = [
+      ["manifest", "manifest.json", "application/json"],
+      ["candidateProfile", "candidate-profile.json", "application/json"],
+      ["factCatalog", "fact-catalog.json", "application/json"],
+      ["writingStyle", "writing-style.json", "application/json"],
+      [
+        "baseCvDocx",
+        "base-cv.docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ],
+      ["baseCvPdf", "base-cv.pdf", "application/pdf"],
+    ];
+    for (const [field, filename, type] of files) {
+      form.set(
+        field,
+        new Blob([Uint8Array.from(profile[field])], { type }),
+        filename,
+      );
+    }
+    await this.request("/automation/materials/profile", {
+      method: "POST",
+      body: form,
+    });
   }
 
   async heartbeatMaterial(

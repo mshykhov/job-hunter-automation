@@ -168,6 +168,7 @@ Return only the JSON object required by the supplied output schema.
 Rules:
 - Select only approved variant and qualification IDs present in the fact catalog. Never rewrite CV facts and never invent claims, dates, employers, technologies, metrics, or responsibilities.
 - Preserve every locked experience entry. Rank approved facts and qualifications for the vacancy and ATS relevance without keyword stuffing.
+- Return empty summaryVariantIds, qualificationIds, and experience arrays when CV_DOCX/CV_PDF are not requested.
 - Cover letter: direct, natural C1 English, 2-3 sentences, target 40-55 words, hard range 30-70 words. REQUIRED_EXTENDED alone permits up to 90 words. It should sound like the candidate wrote it, with no greeting, sign-off, flattery, or formal filler.
 - Recruiter message: direct and human, target 25-40 words, hard range 25-45 words.
 - Every message must cite the exact source fact IDs supporting its claims. Do not mention English level, education, age, date of birth, protected terms, or the generation process.

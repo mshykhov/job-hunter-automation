@@ -193,18 +193,16 @@ const generatedMessageSchema = z
 export const generationOutputSchema = z
   .object({
     schemaVersion: z.literal(MATERIALS_SCHEMA_VERSION),
-    summaryVariantIds: z.array(z.string().min(1)).min(2).max(5),
-    qualificationIds: z.array(z.string().min(1)).min(4),
-    experience: z
-      .array(
-        z
-          .object({
-            experienceId: z.string().min(1),
-            selectedVariants: z.array(selectedVariantSchema).min(1),
-          })
-          .strict(),
-      )
-      .min(1),
+    summaryVariantIds: z.array(z.string().min(1)).max(5),
+    qualificationIds: z.array(z.string().min(1)),
+    experience: z.array(
+      z
+        .object({
+          experienceId: z.string().min(1),
+          selectedVariants: z.array(selectedVariantSchema).min(1),
+        })
+        .strict(),
+    ),
     coverLetter: generatedMessageSchema
       .extend({ requiredByVacancy: z.boolean() })
       .strict()

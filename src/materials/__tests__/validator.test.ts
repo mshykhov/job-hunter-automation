@@ -35,4 +35,37 @@ describe("validateGeneration", () => {
       ]),
     );
   });
+
+  it("accepts no CV selection for a text-only request", () => {
+    const input = validGenerationInput();
+    input.requestedKinds = ["COVER_LETTER"];
+    const output = validGenerationOutput();
+    output.summaryVariantIds = [];
+    output.qualificationIds = [];
+    output.experience = [];
+    output.recruiterMessage = null;
+
+    expect(validateGeneration(input, output)).toEqual({
+      valid: true,
+      findings: [],
+    });
+  });
+
+  it("rejects an empty CV selection when CV is requested", () => {
+    const output = validGenerationOutput();
+    output.summaryVariantIds = [];
+    output.qualificationIds = [];
+    output.experience = [];
+
+    const result = validateGeneration(validGenerationInput(), output);
+
+    expect(result.valid).toBe(false);
+    expect(result.findings.map(({ code }) => code)).toEqual(
+      expect.arrayContaining([
+        "CV_SUMMARY_MISSING",
+        "CV_QUALIFICATIONS_MISSING",
+        "EXPERIENCE_STRUCTURE_CHANGED",
+      ]),
+    );
+  });
 });

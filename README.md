@@ -11,9 +11,10 @@ page data are runtime secrets and are never committed.
 
 ## Status
 
-The runner can compile a truthful ATS-aligned CV, short cover letter, and recruiter message from an
-approved private fact catalog. Generation uses the local Codex subscription login with Terra by
-default and bounded Sol repair or explicit improvement. It never submits applications.
+The runner imports the configured immutable candidate profile on startup and can compile a truthful
+ATS-aligned CV, short cover letter, and recruiter message from its approved private fact catalog.
+Generation uses the local Codex subscription login with Terra by default and bounded Sol repair or
+explicit improvement. It never submits applications.
 
 ## Development
 

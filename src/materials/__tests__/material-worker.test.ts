@@ -22,6 +22,60 @@ afterEach(async () => {
 });
 
 describe("MaterialWorker", () => {
+  it("imports the profile bundle before polling for work", async () => {
+    const workRoot = await mkdtemp(
+      join(tmpdir(), "materials-worker-bootstrap-test-"),
+    );
+    directories.push(workRoot);
+    const paths = {
+      profileManifestPath: join(workRoot, "manifest.json"),
+      candidateProfilePath: join(workRoot, "candidate-profile.json"),
+      factCatalogPath: join(workRoot, "fact-catalog.json"),
+      writingStylePath: join(workRoot, "writing-style.json"),
+      baseDocxPath: join(workRoot, "base.docx"),
+      basePdfPath: join(workRoot, "base.pdf"),
+    };
+    await Promise.all(
+      Object.values(paths).map((path) =>
+        writeFile(path, path.split("/").at(-1) ?? "file"),
+      ),
+    );
+    const controller = new AbortController();
+    const importMaterialProfile = vi.fn<
+      MaterialWorkerClient["importMaterialProfile"]
+    >(() => Promise.resolve());
+    const claimMaterial = vi.fn<MaterialWorkerClient["claimMaterial"]>(() => {
+      controller.abort();
+      return Promise.resolve(null);
+    });
+    const client: MaterialWorkerClient = {
+      importMaterialProfile,
+      claimMaterial,
+      heartbeatMaterial: vi.fn(() => Promise.resolve(new Date().toISOString())),
+      failMaterial: vi.fn(() => Promise.resolve()),
+      completeMaterial: vi.fn(),
+    };
+    const worker = new MaterialWorker(
+      {
+        workerId: "test-worker",
+        workRoot,
+        pollIntervalMs: 10,
+        leaseHeartbeatMs: 60_000,
+        ...paths,
+      },
+      client,
+      { generate: vi.fn() },
+      { render: vi.fn() },
+    );
+
+    await worker.run(controller.signal);
+
+    expect(importMaterialProfile).toHaveBeenCalledOnce();
+    expect(importMaterialProfile.mock.invocationCallOrder[0]).toBeLessThan(
+      claimMaterial.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
+    );
+  });
+
   it("compiles, uploads, and wipes a successful request workspace", async () => {
     const workRoot = await mkdtemp(join(tmpdir(), "materials-worker-test-"));
     directories.push(workRoot);
@@ -39,6 +93,7 @@ describe("MaterialWorker", () => {
         }),
     );
     const client: MaterialWorkerClient = {
+      importMaterialProfile: vi.fn(() => Promise.resolve()),
       claimMaterial: vi.fn(() => Promise.resolve(null)),
       heartbeatMaterial: vi.fn(() => Promise.resolve(new Date().toISOString())),
       failMaterial: vi.fn(() => Promise.resolve()),
@@ -64,6 +119,10 @@ describe("MaterialWorker", () => {
         leaseHeartbeatMs: 60_000,
         baseDocxPath,
         basePdfPath,
+        profileManifestPath: baseDocxPath,
+        candidateProfilePath: baseDocxPath,
+        factCatalogPath: baseDocxPath,
+        writingStylePath: baseDocxPath,
       },
       client,
       generator,
@@ -81,6 +140,69 @@ describe("MaterialWorker", () => {
       }),
     );
     expect(await readdir(workRoot)).toEqual(["base.docx", "base.pdf"]);
+  });
+
+  it("uploads only the requested cover letter without rendering a CV", async () => {
+    const workRoot = await mkdtemp(
+      join(tmpdir(), "materials-worker-cover-test-"),
+    );
+    directories.push(workRoot);
+    const baseDocxPath = join(workRoot, "base.docx");
+    const basePdfPath = join(workRoot, "base.pdf");
+    await Promise.all([
+      writeFile(baseDocxPath, "base-docx"),
+      writeFile(basePdfPath, "base-pdf"),
+    ]);
+    const completeMaterial = vi.fn<MaterialWorkerClient["completeMaterial"]>(
+      () =>
+        Promise.resolve({
+          revisionId: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce2f",
+          revisionNumber: 2,
+        }),
+    );
+    const client: MaterialWorkerClient = {
+      importMaterialProfile: vi.fn(() => Promise.resolve()),
+      claimMaterial: vi.fn(() => Promise.resolve(null)),
+      heartbeatMaterial: vi.fn(() => Promise.resolve(new Date().toISOString())),
+      failMaterial: vi.fn(() => Promise.resolve()),
+      completeMaterial,
+    };
+    const output = validGenerationOutput();
+    output.summaryVariantIds = [];
+    output.qualificationIds = [];
+    output.experience = [];
+    output.recruiterMessage = null;
+    const render = vi.fn<CvRenderer["render"]>();
+    const renderer: CvRenderer = { render };
+    const worker = new MaterialWorker(
+      {
+        workerId: "test-worker",
+        workRoot,
+        pollIntervalMs: 10,
+        leaseHeartbeatMs: 60_000,
+        baseDocxPath,
+        basePdfPath,
+        profileManifestPath: baseDocxPath,
+        candidateProfilePath: baseDocxPath,
+        factCatalogPath: baseDocxPath,
+        writingStylePath: baseDocxPath,
+      },
+      client,
+      { generate: vi.fn(() => Promise.resolve(output)) },
+      renderer,
+    );
+
+    await worker.processClaim({
+      ...materialClaim(),
+      requestedKinds: ["COVER_LETTER"],
+    });
+
+    expect(render).not.toHaveBeenCalled();
+    expect(completeMaterial).toHaveBeenCalledOnce();
+    const completion = completeMaterial.mock.calls[0]?.[1];
+    expect(completion?.status).toBe("READY");
+    expect(Object.keys(completion?.artifacts ?? {})).toEqual(["COVER_LETTER"]);
+    expect(completion?.artifacts.COVER_LETTER).toBeInstanceOf(Uint8Array);
   });
 });
 

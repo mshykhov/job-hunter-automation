@@ -140,4 +140,49 @@ describe("JobHunterClient", () => {
     expect(request?.body).toBeInstanceOf(FormData);
     expect(new Headers(request?.headers).has("content-type")).toBe(false);
   });
+
+  it("imports the immutable candidate profile bundle as multipart", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce2f",
+          profileVersion: "a".repeat(64),
+          schemaVersion: "application-materials/v1",
+          sourceCommit: "b".repeat(40),
+          active: true,
+          createdAt: null,
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = new JobHunterClient(
+      "https://api.example.test",
+      tokenProvider,
+      fetchMock,
+    );
+
+    await client.importMaterialProfile({
+      manifest: Buffer.from("manifest"),
+      candidateProfile: Buffer.from("profile"),
+      factCatalog: Buffer.from("facts"),
+      writingStyle: Buffer.from("style"),
+      baseCvDocx: Buffer.from("docx"),
+      baseCvPdf: Buffer.from("pdf"),
+    });
+
+    const request = fetchMock.mock.calls[0];
+    expect(request?.[0]).toBe(
+      "https://api.example.test/automation/materials/profile",
+    );
+    const form = request?.[1]?.body;
+    expect(form).toBeInstanceOf(FormData);
+    expect([...(form as FormData).keys()].sort()).toEqual([
+      "baseCvDocx",
+      "baseCvPdf",
+      "candidateProfile",
+      "factCatalog",
+      "manifest",
+      "writingStyle",
+    ]);
+  });
 });
