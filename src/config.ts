@@ -16,6 +16,7 @@ export interface AutomationConfig {
   m2mPassword: string;
   browserProfileDir: string;
   codexHome: string;
+  healthReportingEnabled: boolean;
   intervals: {
     heartbeatSeconds: number;
     preflightSeconds: number;
@@ -67,6 +68,13 @@ export function loadConfig(
     env.MATERIALS_ENABLED?.trim().toLowerCase() === "true"
       ? loadMaterialsConfig(env)
       : undefined;
+  const healthReportingEnabled = booleanValue(
+    env.HEALTH_REPORTING_ENABLED,
+    true,
+    "HEALTH_REPORTING_ENABLED",
+  );
+  if (!healthReportingEnabled && materials === undefined)
+    throw new Error("At least one runner capability must be enabled");
   return {
     apiUrl,
     tokenUrl,
@@ -75,6 +83,7 @@ export function loadConfig(
     m2mPassword: values.AUTOMATION_M2M_PASSWORD ?? "",
     browserProfileDir: values.BROWSER_PROFILE_DIR ?? "",
     codexHome: values.CODEX_HOME ?? "",
+    healthReportingEnabled,
     intervals: {
       heartbeatSeconds: positiveInteger(
         env.HEARTBEAT_INTERVAL_SECONDS,
@@ -94,6 +103,17 @@ export function loadConfig(
     },
     ...(materials === undefined ? {} : { materials }),
   };
+}
+
+function booleanValue(
+  value: string | undefined,
+  defaultValue: boolean,
+  name: string,
+): boolean {
+  if (value === undefined) return defaultValue;
+  if (value.trim().toLowerCase() === "true") return true;
+  if (value.trim().toLowerCase() === "false") return false;
+  throw new Error(`${name} must be true or false`);
 }
 
 function loadMaterialsConfig(env: NodeJS.ProcessEnv): MaterialAutomationConfig {

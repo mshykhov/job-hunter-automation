@@ -20,16 +20,20 @@ local tests.
 
 ## Optional intervals
 
-| Variable                     | Default | Purpose                          |
-| ---------------------------- | ------: | -------------------------------- |
-| `HEARTBEAT_INTERVAL_SECONDS` |    `60` | Health-report interval           |
-| `PREFLIGHT_INTERVAL_SECONDS` |   `300` | Deterministic preflight interval |
-| `CODEX_INTERVAL_SECONDS`     | `21600` | Bounded Codex canary interval    |
+| Variable                     | Default | Purpose                                     |
+| ---------------------------- | ------: | ------------------------------------------- |
+| `HEARTBEAT_INTERVAL_SECONDS` |    `60` | Health-report interval                      |
+| `PREFLIGHT_INTERVAL_SECONDS` |   `300` | Deterministic preflight interval            |
+| `CODEX_INTERVAL_SECONDS`     | `21600` | Bounded Codex canary interval               |
+| `HEALTH_REPORTING_ENABLED`   |  `true` | Run health, preflight, and canary reporting |
 
 The server-issued session intervals remain authoritative after a runner session is
 created. Heartbeat retries preserve generation, sequence, and idempotency key while
 refreshing `sentAt` so bounded retry backoff remains inside the API clock-skew
 contract.
+
+Set `HEALTH_REPORTING_ENABLED=false` for a materials-only private runner that should not require an
+owner health delegation. At least one of health reporting or the material compiler must be enabled.
 
 ## Application-material compiler
 

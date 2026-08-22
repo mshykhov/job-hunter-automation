@@ -131,7 +131,7 @@ export function createAutomationLauncher(
   return new AutomationLauncher(
     async (signal) => {
       await Promise.all([
-        loop.run(signal),
+        ...(config.healthReportingEnabled ? [loop.run(signal)] : []),
         ...(materialWorker === undefined ? [] : [materialWorker.run(signal)]),
       ]);
     },
