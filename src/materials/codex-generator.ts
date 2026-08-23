@@ -18,7 +18,6 @@ export interface CodexGenerationRequest {
   input: GenerationInput;
   workdir: string;
   model: "gpt-5.6-terra" | "gpt-5.6-sol";
-  repairFindings?: string[];
 }
 
 export interface CodexMaterialInvocation {
@@ -94,7 +93,7 @@ export function buildCodexMaterialInvocation(
       ...allowlistedEnvironment(baseEnv),
       CODEX_HOME: config.codexHome,
     },
-    prompt: generationPrompt(request.input, request.repairFindings),
+    prompt: generationPrompt(request.input),
     outputPath,
     timeoutMs: config.timeoutMs,
   };
@@ -157,10 +156,7 @@ async function drain(stream: NodeJS.ReadableStream): Promise<void> {
   }
 }
 
-function generationPrompt(
-  input: GenerationInput,
-  repairFindings?: string[],
-): string {
+function generationPrompt(input: GenerationInput): string {
   return `You prepare truthful job-application materials for the candidate in the input.
 
 Return only the JSON object required by the supplied output schema.
@@ -176,11 +172,7 @@ Rules:
 - Do not call tools. Do not read or write files. Use only the JSON input below.
 
 Input:
-${JSON.stringify(input)}${
-    repairFindings === undefined
-      ? ""
-      : `\n\nThe prior result failed these deterministic validator codes. Return a fresh corrected result without changing any sourced facts:\n${JSON.stringify(repairFindings)}`
-  }`;
+${JSON.stringify(input)}`;
 }
 
 function allowlistedEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {

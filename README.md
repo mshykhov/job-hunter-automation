@@ -13,8 +13,9 @@ page data are runtime secrets and are never committed.
 
 The runner imports the configured immutable candidate profile on startup and can compile a truthful
 ATS-aligned CV, short cover letter, and recruiter message from its approved private fact catalog.
-Generation uses the local Codex subscription login with Terra by default and bounded Sol repair or
-explicit improvement. It never submits applications.
+Generation starts only from an explicit owner request and uses the local Codex subscription login.
+Terra handles standard requests, while Sol runs only for an explicit owner-requested improvement.
+It never submits applications.
 
 ## Development
 
