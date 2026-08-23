@@ -58,8 +58,9 @@ imports and activates the configured immutable profile bundle before it starts p
 | `MATERIALS_GENERATION_TIMEOUT_MS`  | `180000` | Per-model generation timeout                   |
 | `MATERIALS_RENDER_TIMEOUT_MS`      | `120000` | Isolated CV render timeout                     |
 
-The worker uses the existing Codex subscription login. Terra is the default route; Sol runs only for
-one bounded repair or an explicit owner-requested improvement. It never submits an application.
+The worker polls without generating anything until the owner explicitly creates a material request.
+It uses the existing Codex subscription login: Terra handles standard requests, while Sol runs only
+for an explicit owner-requested improvement. It never submits an application.
 
 ## Authentication request
 

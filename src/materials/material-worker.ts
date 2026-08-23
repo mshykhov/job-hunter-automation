@@ -63,7 +63,6 @@ export interface MaterialOutputGenerator {
       input: GenerationInput;
       workdir: string;
       model: "gpt-5.6-terra" | "gpt-5.6-sol";
-      repairFindings?: string[];
     },
     signal?: AbortSignal,
   ): Promise<GenerationOutput>;
@@ -141,7 +140,7 @@ export class MaterialWorker {
   ): Promise<MaterialCompletionUpload> {
     const input = toGenerationInput(claim);
     let output: GenerationOutput | null = null;
-    let model: "gpt-5.6-terra" | "gpt-5.6-sol" =
+    const model: "gpt-5.6-terra" | "gpt-5.6-sol" =
       claim.route === "SOL_IMPROVE" ? "gpt-5.6-sol" : "gpt-5.6-terra";
     let validation: ValidationResult = {
       valid: false,
@@ -155,32 +154,6 @@ export class MaterialWorker {
         valid: false,
         findings: [hardPackage("OUTPUT_SCHEMA_INVALID")],
       };
-    }
-
-    if (
-      claim.route === "TERRA" &&
-      shouldRepair(validation, input) &&
-      !signal.aborted
-    ) {
-      model = "gpt-5.6-sol";
-      try {
-        output = await this.generator.generate(
-          {
-            input,
-            workdir,
-            model,
-            repairFindings: validation.findings.map(({ code }) => code),
-          },
-          signal,
-        );
-        validation = validateGeneration(input, output);
-      } catch {
-        output = null;
-        validation = {
-          valid: false,
-          findings: [hardPackage("SOL_REPAIR_FAILED")],
-        };
-      }
     }
 
     const coverLetter = output?.coverLetter;
@@ -345,22 +318,6 @@ function toGenerationInput(claim: MaterialClaim): GenerationInput {
     coverLetterPolicy: claim.coverLetterPolicy,
     mode: claim.mode,
   });
-}
-
-function shouldRepair(
-  validation: ValidationResult,
-  input: GenerationInput,
-): boolean {
-  return validation.findings.some(
-    ({ artifact, severity }) =>
-      severity === "HARD" &&
-      ((artifact === "CV" && input.requestedKinds.includes("CV_DOCX")) ||
-        artifact === "PACKAGE" ||
-        (artifact === "COVER_LETTER" &&
-          input.requestedKinds.includes("COVER_LETTER")) ||
-        (artifact === "RECRUITER_MESSAGE" &&
-          input.requestedKinds.includes("RECRUITER_MESSAGE"))),
-  );
 }
 
 function hasRelevantHard(
