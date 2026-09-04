@@ -9,7 +9,13 @@ owner can manage delegation or read status.
 
 ## Install
 
-Provision a clean Ubuntu 24.04 instance. Copy `packaging/bootstrap.sh` and
+Provision a clean Ubuntu 24.04 instance with 2 CPU, 4 GiB memory, swap disabled,
+a 30 GiB root filesystem, persistent storage, and host-boot autostart. Attach it
+to a dedicated managed NAT network that rejects the Kubernetes pod and service
+CIDRs. Do not expose inbound ports; the runtime initiates only authenticated
+outbound HTTPS and local stdio MCP connections.
+
+Copy `packaging/bootstrap.sh` and
 `packaging/versions.env` into one temporary directory on the instance, then run
 the bootstrap as root with the exact deployed commit:
 
@@ -22,7 +28,9 @@ requested repository revision, and invokes `packaging/install.sh`. The installer
 verifies the Node.js and Playwright pins, builds and tests the runtime, installs
 the pinned Codex CLI and Chrome dependencies, creates the non-login
 `job-hunter-automation` account, and installs the systemd unit. Re-running the
-same revision is safe. Neither script enables or starts the service.
+same revision is safe. Package installation skips npm's informational network
+audit so a slow advisory endpoint cannot block deployment; lockfile security is
+checked separately before release. Neither script enables or starts the service.
 
 Populate `/etc/job-hunter-automation/runner.env` without printing values and keep
 it owned by root with mode `0600`. Confirm names only:
@@ -68,6 +76,13 @@ DATABASE, CHROME, PLAYWRIGHT, BROWSER_MCP, JOB_HUNTER_MCP, and CODEX components.
 The first heartbeat runs preflight and canary; later heartbeats reuse snapshots until the
 server-issued interval expires. With materials enabled, create a package from the owner UI and verify
 that one immutable revision reaches `READY` or the explicit base-CV fallback state.
+
+Verify network isolation from inside the instance: Kubernetes pod and service
+CIDRs must be unreachable while the public Job Hunter health endpoint returns
+HTTP 200. After the first successful install, perform both a service restart and
+a full instance restart. The service must autostart, credentials and profile
+permissions must remain unchanged, and all eight components must return to
+`READY` without manual repair.
 
 ## Recover
 

@@ -57,6 +57,8 @@ describe("systemd package", () => {
     }
     expect(installer).toContain("node_major");
     expect(installer).toContain("PLAYWRIGHT_VERSION");
+    expect(installer).toContain("npm ci --no-audit");
+    expect(installer).toContain("npm prune --omit=dev --no-audit");
     expect(installer).not.toContain("systemctl enable job-hunter-automation");
   });
 

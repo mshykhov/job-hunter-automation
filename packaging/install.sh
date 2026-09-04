@@ -25,14 +25,14 @@ install -d -o job-hunter-automation -g job-hunter-automation -m 0700 "$state_roo
 install -d -o root -g job-hunter-automation -m 0750 "$config_root"
 
 cd "$(dirname "$script_dir")"
-npm ci
+npm ci --no-audit
 npm run verify
 installed_playwright_version="$(node -p "require('./node_modules/playwright/package.json').version")"
 if [[ "$installed_playwright_version" != "$PLAYWRIGHT_VERSION" ]]; then
   echo "Playwright version does not match packaging/versions.env" >&2
   exit 1
 fi
-npm prune --omit=dev
+npm prune --omit=dev --no-audit
 npm install --global "@openai/codex@$CODEX_VERSION"
 npx playwright install --with-deps chrome
 
