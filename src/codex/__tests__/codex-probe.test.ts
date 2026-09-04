@@ -26,6 +26,7 @@ describe("Codex canary", () => {
     expect(invocation.command).toBe("codex");
     expect(invocation.args).toEqual([
       "exec",
+      "--skip-git-repo-check",
       "--profile",
       "automation-canary",
       "--ephemeral",

@@ -27,7 +27,10 @@ describe("MCP probes", () => {
       "/opt/job-hunter-automation/dist/browser-runner/server.js",
       "/var/lib/job-hunter-automation/chrome-profile",
       stdioFactory,
-      { DISPLAY: ":99" },
+      {
+        DISPLAY: ":99",
+        XAUTHORITY: "/tmp/xvfb-run/Xauthority",
+      },
     );
     createJobHunterTransport(
       "https://api.example.test/mcp",
@@ -45,6 +48,7 @@ describe("MCP probes", () => {
       "/var/lib/job-hunter-automation/chrome-profile",
     );
     expect(stdioParameters?.env?.DISPLAY).toBe(":99");
+    expect(stdioParameters?.env?.XAUTHORITY).toBe("/tmp/xvfb-run/Xauthority");
     expect(httpFactory).toHaveBeenCalledWith(
       new URL("https://api.example.test/mcp"),
       {

@@ -60,6 +60,7 @@ export function buildCodexInvocation(
     command: "codex",
     args: [
       "exec",
+      "--skip-git-repo-check",
       "--profile",
       "automation-canary",
       "--ephemeral",
