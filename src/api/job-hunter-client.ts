@@ -26,6 +26,53 @@ export interface RunnerSession {
   codexCanaryIntervalSeconds: number;
 }
 
+export const WORKFLOW_STEPS = ["PREPARE", "EXECUTE", "VERIFY"] as const;
+export type WorkflowStep = (typeof WORKFLOW_STEPS)[number];
+
+export interface WorkflowClaim {
+  runId: string;
+  workItemId: string;
+  attemptId: string;
+  leaseToken: string;
+  leaseExpiresAt: string;
+  generation: number;
+  nextStepIndex: number;
+  steps: WorkflowStep[];
+}
+
+export interface WorkflowLeaseCommand {
+  attemptId: string;
+  leaseToken: string;
+  generation: number;
+}
+
+export interface WorkflowCheckpointCommand extends WorkflowLeaseCommand {
+  idempotencyKey: string;
+  step: WorkflowStep;
+  evidenceSha256: string;
+}
+
+export interface WorkflowFailureCommand extends WorkflowLeaseCommand {
+  retryable: boolean;
+  code: string;
+  detail?: string;
+}
+
+export interface WorkflowProgress {
+  runId: string;
+  workItemId: string;
+  runStatus:
+    | "QUEUED"
+    | "RUNNING"
+    | "PAUSED"
+    | "STOPPED"
+    | "SUCCEEDED"
+    | "FAILED";
+  workItemStatus: "QUEUED" | "LEASED" | "SUCCEEDED" | "CANCELLED" | "FAILED";
+  completedSteps: number;
+  leaseExpiresAt: string | null;
+}
+
 export interface MaterialClaim {
   requestId: string;
   leaseToken: string;
@@ -73,6 +120,13 @@ export class StaleGenerationError extends Error {
   }
 }
 
+export class LeaseLostError extends Error {
+  constructor() {
+    super("Job Hunter workflow lease is no longer active");
+    this.name = "LeaseLostError";
+  }
+}
+
 export class JobHunterClient {
   constructor(
     private readonly apiUrl: string,
@@ -108,6 +162,49 @@ export class JobHunterClient {
     });
     if (response.status === 204) return null;
     return materialClaimSchema.parse(await response.json());
+  }
+
+  async claimWorkflow(
+    workerId: string,
+    generation: number,
+  ): Promise<WorkflowClaim | null> {
+    const response = await this.request(
+      "/automation/runner/work-items/claims",
+      {
+        method: "POST",
+        body: JSON.stringify({ workerId, generation }),
+      },
+    );
+    if (response.status === 204) return null;
+    return workflowClaimSchema.parse(await response.json());
+  }
+
+  async heartbeatWorkflow(
+    workItemId: string,
+    command: WorkflowLeaseCommand,
+  ): Promise<WorkflowProgress> {
+    return this.workflowCommand(workItemId, "heartbeat", command);
+  }
+
+  async checkpointWorkflow(
+    workItemId: string,
+    command: WorkflowCheckpointCommand,
+  ): Promise<WorkflowProgress> {
+    return this.workflowCommand(workItemId, "checkpoints", command);
+  }
+
+  async completeWorkflow(
+    workItemId: string,
+    command: WorkflowLeaseCommand,
+  ): Promise<WorkflowProgress> {
+    return this.workflowCommand(workItemId, "complete", command);
+  }
+
+  async failWorkflow(
+    workItemId: string,
+    command: WorkflowFailureCommand,
+  ): Promise<WorkflowProgress> {
+    return this.workflowCommand(workItemId, "fail", command);
   }
 
   async importMaterialProfile(profile: MaterialProfileUpload): Promise<void> {
@@ -209,6 +306,21 @@ export class JobHunterClient {
     return materialCompletionResponseSchema.parse(await response.json());
   }
 
+  private async workflowCommand(
+    workItemId: string,
+    operation: "heartbeat" | "checkpoints" | "complete" | "fail",
+    command:
+      | WorkflowLeaseCommand
+      | WorkflowCheckpointCommand
+      | WorkflowFailureCommand,
+  ): Promise<WorkflowProgress> {
+    const response = await this.request(
+      `/automation/runner/work-items/${workItemId}/${operation}`,
+      { method: "POST", body: JSON.stringify(command) },
+    );
+    return workflowProgressSchema.parse(await response.json());
+  }
+
   private async request(path: string, init: RequestInit): Promise<Response> {
     const token = await this.tokenProvider.getAccessToken();
     const response = await this.fetchImplementation(
@@ -228,7 +340,12 @@ export class JobHunterClient {
       this.tokenProvider.invalidate();
       throw new UnauthorizedError();
     }
-    if (response.status === 409) throw new StaleGenerationError();
+    if (response.status === 409) {
+      const errorBody: unknown = await response.json().catch(() => undefined);
+      if (isRecord(errorBody) && errorBody.code === "AUTOMATION_LEASE_LOST")
+        throw new LeaseLostError();
+      throw new StaleGenerationError();
+    }
     if (!response.ok)
       throw new Error(
         `Job Hunter API request failed with status ${String(response.status)}`,
@@ -250,6 +367,43 @@ const materialClaimSchema = z
     coverLetterPolicy: coverLetterPolicySchema,
     mode: z.enum(["TERRA", "SOL_IMPROVE", "USER_EDIT_VALIDATION"]),
     route: z.enum(["TERRA", "SOL_IMPROVE"]),
+  })
+  .strict();
+
+const workflowClaimSchema = z
+  .object({
+    runId: z.string().uuid(),
+    workItemId: z.string().uuid(),
+    attemptId: z.string().uuid(),
+    leaseToken: z.string().uuid(),
+    leaseExpiresAt: z.string().datetime({ offset: true }),
+    generation: z.number().int().positive(),
+    nextStepIndex: z.number().int().min(0).max(WORKFLOW_STEPS.length),
+    steps: z.array(z.enum(WORKFLOW_STEPS)).length(WORKFLOW_STEPS.length),
+  })
+  .strict();
+
+const workflowProgressSchema = z
+  .object({
+    runId: z.string().uuid(),
+    workItemId: z.string().uuid(),
+    runStatus: z.enum([
+      "QUEUED",
+      "RUNNING",
+      "PAUSED",
+      "STOPPED",
+      "SUCCEEDED",
+      "FAILED",
+    ]),
+    workItemStatus: z.enum([
+      "QUEUED",
+      "LEASED",
+      "SUCCEEDED",
+      "CANCELLED",
+      "FAILED",
+    ]),
+    completedSteps: z.number().int().min(0).max(WORKFLOW_STEPS.length),
+    leaseExpiresAt: z.string().datetime({ offset: true }).nullable(),
   })
   .strict();
 
@@ -296,8 +450,8 @@ function isHeartbeatResponse(value: unknown): value is HeartbeatResponse {
   return (
     isPositiveInteger(value.generation) &&
     isPositiveInteger(value.acceptedSequence) &&
-    typeof value.state === "string" &&
-    AUTOMATION_STATES.some((state) => state === value.state)
+    typeof value.overallState === "string" &&
+    AUTOMATION_STATES.some((state) => state === value.overallState)
   );
 }
 

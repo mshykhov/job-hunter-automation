@@ -26,6 +26,24 @@ describe("loadConfig", () => {
       codexSeconds: 21_600,
     });
     expect(config.healthReportingEnabled).toBe(true);
+    expect(config.workflows).toBeUndefined();
+  });
+
+  it("loads the synthetic workflow worker only when explicitly enabled", () => {
+    expect(() =>
+      loadConfig({ ...REQUIRED_ENV, WORKFLOW_WORKER_ENABLED: "true" }),
+    ).toThrow(/WORKFLOW_WORKER_ID/);
+    expect(
+      loadConfig({
+        ...REQUIRED_ENV,
+        WORKFLOW_WORKER_ENABLED: "true",
+        WORKFLOW_WORKER_ID: "recovery-worker",
+      }).workflows,
+    ).toEqual({
+      workerId: "recovery-worker",
+      pollIntervalMs: 2_000,
+      stepDelayMs: 1_000,
+    });
   });
 
   it("can disable health reporting for a materials-only runner", () => {

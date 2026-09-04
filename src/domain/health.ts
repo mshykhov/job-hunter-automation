@@ -86,5 +86,5 @@ export interface HeartbeatRequest extends HeartbeatDraft {
 export interface HeartbeatResponse {
   generation: number;
   acceptedSequence: number;
-  state: AutomationState;
+  overallState: AutomationState;
 }

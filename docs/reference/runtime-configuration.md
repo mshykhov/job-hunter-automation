@@ -32,8 +32,26 @@ created. Heartbeat retries preserve generation, sequence, and idempotency key wh
 refreshing `sentAt` so bounded retry backoff remains inside the API clock-skew
 contract.
 
-Set `HEALTH_REPORTING_ENABLED=false` for a materials-only private runner that should not require an
-owner health delegation. At least one of health reporting or the material compiler must be enabled.
+Set `HEALTH_REPORTING_ENABLED=false` only when another capability is enabled. At
+least one of health reporting, the synthetic workflow worker, or the material
+compiler must be enabled.
+
+## Durable synthetic workflow worker
+
+Set `WORKFLOW_WORKER_ENABLED=true` after the API version with durable workflow
+contracts is deployed. The worker shares one fenced runner session with health
+reporting and stores no workflow state locally.
+
+| Variable                    |  Default | Purpose                                 |
+| --------------------------- | -------: | --------------------------------------- |
+| `WORKFLOW_WORKER_ID`        | required | Stable lease-worker identifier          |
+| `WORKFLOW_POLL_INTERVAL_MS` |   `2000` | Empty-queue poll interval               |
+| `WORKFLOW_STEP_DELAY_MS`    |   `1000` | Deterministic recovery-drill step delay |
+
+Each claim contains the first incomplete step. The worker heartbeats before a
+step, submits a deterministic SHA-256 checkpoint with a stable UUID, and retries a
+lost checkpoint response without rerunning the step. A stale generation opens one
+new shared session; a revoked or expired lease stops the attempt immediately.
 
 ## Application-material compiler
 

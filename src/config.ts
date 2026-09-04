@@ -23,6 +23,13 @@ export interface AutomationConfig {
     codexSeconds: number;
   };
   materials?: MaterialAutomationConfig;
+  workflows?: WorkflowAutomationConfig;
+}
+
+export interface WorkflowAutomationConfig {
+  workerId: string;
+  pollIntervalMs: number;
+  stepDelayMs: number;
 }
 
 export interface MaterialAutomationConfig {
@@ -74,7 +81,15 @@ export function loadConfig(
     true,
     "HEALTH_REPORTING_ENABLED",
   );
-  if (!healthReportingEnabled && materials === undefined)
+  const workflows =
+    env.WORKFLOW_WORKER_ENABLED?.trim().toLowerCase() === "true"
+      ? loadWorkflowConfig(env)
+      : undefined;
+  if (
+    !healthReportingEnabled &&
+    materials === undefined &&
+    workflows === undefined
+  )
     throw new Error("At least one runner capability must be enabled");
   return {
     apiUrl,
@@ -103,6 +118,23 @@ export function loadConfig(
       ),
     },
     ...(materials === undefined ? {} : { materials }),
+    ...(workflows === undefined ? {} : { workflows }),
+  };
+}
+
+function loadWorkflowConfig(env: NodeJS.ProcessEnv): WorkflowAutomationConfig {
+  return {
+    workerId: required(env, "WORKFLOW_WORKER_ID"),
+    pollIntervalMs: positiveInteger(
+      env.WORKFLOW_POLL_INTERVAL_MS,
+      2_000,
+      "WORKFLOW_POLL_INTERVAL_MS",
+    ),
+    stepDelayMs: positiveInteger(
+      env.WORKFLOW_STEP_DELAY_MS,
+      1_000,
+      "WORKFLOW_STEP_DELAY_MS",
+    ),
   };
 }
 

@@ -2,8 +2,9 @@
 
 Private-runtime execution layer for [Job Hunter](https://github.com/mshykhov/job-hunter).
 It runs deterministic health probes, a local Playwright-backed Browser Runner MCP,
-bounded Codex canaries, and an opt-in private application-material compiler. Durable state, owner policy, and audit data remain in
-the Job Hunter API and PostgreSQL.
+bounded Codex canaries, an opt-in synthetic recovery worker, and an opt-in private
+application-material compiler. Durable state, owner policy, and audit data remain
+in the Job Hunter API and PostgreSQL.
 
 The repository is public, but deployed access is single-owner. Browser profiles,
 cookies, Codex authentication, M2M credentials, prompts, model output, and captured
@@ -16,6 +17,11 @@ ATS-aligned CV, short cover letter, and recruiter message from its approved priv
 Generation starts only from an explicit owner request and uses the local Codex subscription login.
 Terra handles standard requests, while Sol runs only for an explicit owner-requested improvement.
 It never submits applications.
+
+The synthetic worker exercises the production lease and checkpoint protocol with
+three deterministic no-op steps. It has no browser or external-site capability.
+After a runner restart, the API fences the old generation and returns only the
+first incomplete step, so the runtime needs no local workflow database.
 
 ## Development
 
