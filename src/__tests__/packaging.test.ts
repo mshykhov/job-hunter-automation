@@ -3,6 +3,15 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("systemd package", () => {
+  it("pins patched production transitive dependencies", async () => {
+    const lock = JSON.parse(await readFile("package-lock.json", "utf8")) as {
+      packages: Record<string, { version?: string }>;
+    };
+
+    expect(lock.packages["node_modules/fast-uri"]?.version).toBe("3.1.7");
+    expect(lock.packages["node_modules/qs"]?.version).toBe("6.16.0");
+  });
+
   it("bootstraps a pristine Ubuntu host at an exact repository revision", async () => {
     const [versions, bootstrap] = await Promise.all([
       readFile("packaging/versions.env", "utf8"),
