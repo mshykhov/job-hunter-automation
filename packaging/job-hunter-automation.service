@@ -11,7 +11,7 @@ WorkingDirectory=/var/lib/job-hunter-automation/canary-workspace
 EnvironmentFile=/etc/job-hunter-automation/runner.env
 Environment=DISPLAY=:99
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/xvfb-run --server-num=99 --server-args="-screen 0 1280x900x24 -nolisten tcp -noreset" /usr/bin/node /opt/job-hunter-automation/dist/launcher.js
+ExecStart=/usr/bin/xvfb-run --server-num=99 --server-args="-screen 0 1280x900x24 -nolisten tcp -noreset" /usr/local/bin/node /opt/job-hunter-automation/dist/launcher.js
 Restart=on-failure
 RestartSec=15
 TimeoutStopSec=15

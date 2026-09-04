@@ -14,7 +14,7 @@ enabled = true
 required = true
 
 [mcp_servers.browser_runner]
-command = "/usr/bin/node"
+command = "/usr/local/bin/node"
 args = ["/opt/job-hunter-automation/dist/browser-runner/server.js"]
 env_vars = ["BROWSER_PROFILE_DIR", "DISPLAY"]
 enabled_tools = ["browser_preflight"]
