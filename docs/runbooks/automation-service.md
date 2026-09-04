@@ -2,8 +2,9 @@
 
 ## Safety boundary
 
-The runner reports health and may compile private application-material requests when explicitly
-enabled. It does not navigate job sites, fill forms, or submit applications. The public repository contains no
+The runner reports health, may execute deterministic synthetic recovery drills,
+and may compile private application-material requests when explicitly enabled. It
+does not navigate job sites, fill forms, or submit applications. The public repository contains no
 credentials. The API binds the runner identity to one configured owner; only that
 owner can manage delegation or read status.
 
@@ -55,6 +56,12 @@ immutable profile bundle to the protected materials directory, import that bundl
 owner-only API endpoint, and set the `MATERIALS_*` variables from `runner.env.example`. Keep the
 feature disabled if any bundle hash or profile version differs.
 
+To enable recovery drills, first deploy the compatible API migration and contracts,
+then set `WORKFLOW_WORKER_ENABLED=true` and a stable `WORKFLOW_WORKER_ID`. A service
+restart starts one new runner generation, invalidates the old lease in PostgreSQL,
+and resumes from the first incomplete checkpoint. Do not add a local queue or
+workflow database to the instance.
+
 Then start the service:
 
 ```sh
@@ -76,6 +83,8 @@ DATABASE, CHROME, PLAYWRIGHT, BROWSER_MCP, JOB_HUNTER_MCP, and CODEX components.
 The first heartbeat runs preflight and canary; later heartbeats reuse snapshots until the
 server-issued interval expires. With materials enabled, create a package from the owner UI and verify
 that one immutable revision reaches `READY` or the explicit base-CV fallback state.
+With the synthetic worker enabled, create a recovery run from the owner UI and
+verify exactly three unique checkpoints before `SUCCEEDED`.
 
 Verify network isolation from inside the instance: Kubernetes pod and service
 CIDRs must be unreachable while the public Job Hunter health endpoint returns

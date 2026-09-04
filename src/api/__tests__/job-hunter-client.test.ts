@@ -4,6 +4,7 @@ import type { HeartbeatRequest } from "../../domain/health.js";
 import { validGenerationInput } from "../../materials/__tests__/fixtures.js";
 import {
   JobHunterClient,
+  LeaseLostError,
   StaleGenerationError,
   UnauthorizedError,
 } from "../job-hunter-client.js";
@@ -101,6 +102,58 @@ describe("JobHunterClient", () => {
     );
 
     await expect(client.claimMaterial("local-runner")).resolves.toBeNull();
+  });
+
+  it("claims a typed synthetic workflow", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          runId: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce1f",
+          workItemId: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce2f",
+          attemptId: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce3f",
+          leaseToken: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce4f",
+          leaseExpiresAt: "2026-09-04T09:00:00Z",
+          generation: 7,
+          nextStepIndex: 1,
+          steps: ["PREPARE", "EXECUTE", "VERIFY"],
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = new JobHunterClient(
+      "https://api.example.test",
+      tokenProvider,
+      fetchMock,
+    );
+
+    await expect(client.claimWorkflow("worker", 7)).resolves.toMatchObject({
+      generation: 7,
+      nextStepIndex: 1,
+    });
+  });
+
+  it("distinguishes a revoked workflow lease from stale generation", async () => {
+    const client = new JobHunterClient(
+      "https://api.example.test",
+      tokenProvider,
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            message: "Automation work lease is stale or invalid",
+            code: "AUTOMATION_LEASE_LOST",
+          }),
+          { status: 409 },
+        ),
+      ),
+    );
+
+    await expect(
+      client.heartbeatWorkflow("d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce2f", {
+        attemptId: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce3f",
+        leaseToken: "d07cb2ae-3b18-46d4-8c2d-aeaaf3bbce4f",
+        generation: 7,
+      }),
+    ).rejects.toBeInstanceOf(LeaseLostError);
   });
 
   it("uploads completion as multipart without overriding its boundary", async () => {

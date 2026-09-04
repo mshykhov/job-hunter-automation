@@ -12,6 +12,8 @@ import { probeBrowserRunner, probeJobHunterMcp } from "./probes/mcp-probe.js";
 import { runPreflight } from "./probes/preflight.js";
 import { RuntimeHealthCollector } from "./runner/health-collector.js";
 import { HeartbeatLoop } from "./runner/heartbeat-loop.js";
+import { RunnerSessionCoordinator } from "./runner/session-coordinator.js";
+import { SyntheticWorkflowWorker } from "./workflows/synthetic-workflow-worker.js";
 
 export interface SignalSource {
   on(signal: NodeJS.Signals, handler: () => void): void;
@@ -64,6 +66,7 @@ export function createAutomationLauncher(
   const config = loadConfig(env);
   const tokenProvider = new AuthentikTokenProvider(config);
   const client = new JobHunterClient(config.apiUrl, tokenProvider);
+  const sessions = new RunnerSessionCoordinator(client);
   const browserRunnerPath = fileURLToPath(
     new URL("./browser-runner/server.js", import.meta.url),
   );
@@ -97,8 +100,11 @@ export function createAutomationLauncher(
         signal,
       ),
   });
-  const loop = new HeartbeatLoop(client, (session, signal) =>
-    collector.collect(session, signal),
+  const loop = new HeartbeatLoop(
+    client,
+    (session, signal) => collector.collect(session, signal),
+    undefined,
+    sessions,
   );
   const materialWorker =
     config.materials === undefined
@@ -128,11 +134,16 @@ export function createAutomationLauncher(
             timeoutMs: config.materials.renderTimeoutMs,
           }),
         );
+  const workflowWorker =
+    config.workflows === undefined
+      ? undefined
+      : new SyntheticWorkflowWorker(config.workflows, client, sessions);
   return new AutomationLauncher(
     async (signal) => {
       await Promise.all([
         ...(config.healthReportingEnabled ? [loop.run(signal)] : []),
         ...(materialWorker === undefined ? [] : [materialWorker.run(signal)]),
+        ...(workflowWorker === undefined ? [] : [workflowWorker.run(signal)]),
       ]);
     },
     () => Promise.resolve(),

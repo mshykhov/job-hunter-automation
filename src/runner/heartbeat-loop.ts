@@ -8,6 +8,7 @@ import type {
   HeartbeatRequest,
   HeartbeatResponse,
 } from "../domain/health.js";
+import { RunnerSessionCoordinator } from "./session-coordinator.js";
 
 export interface RunnerClient {
   startSession(): Promise<RunnerSession>;
@@ -29,7 +30,7 @@ const DEFAULT_OPTIONS: HeartbeatLoopOptions = {
 };
 
 export class HeartbeatLoop {
-  private session: RunnerSession | undefined;
+  private currentSession: RunnerSession | undefined;
   private sequence = 0;
   private serialized: Promise<void> = Promise.resolve();
 
@@ -40,6 +41,7 @@ export class HeartbeatLoop {
       signal?: AbortSignal,
     ) => Promise<HeartbeatDraft>,
     private readonly options: HeartbeatLoopOptions = DEFAULT_OPTIONS,
+    private readonly sessionCoordinator = new RunnerSessionCoordinator(client),
   ) {}
 
   runOnce(signal?: AbortSignal): Promise<void> {
@@ -54,7 +56,7 @@ export class HeartbeatLoop {
       if (!isAborted(signal)) {
         try {
           await this.options.sleep(
-            (this.session?.heartbeatIntervalSeconds ?? 60) * 1000,
+            (this.currentSession?.heartbeatIntervalSeconds ?? 60) * 1000,
             signal,
           );
         } catch (error) {
@@ -65,11 +67,11 @@ export class HeartbeatLoop {
   }
 
   private async executeOnce(signal?: AbortSignal): Promise<void> {
-    this.session ??= await this.client.startSession();
-    const draft = await this.collect(this.session, signal);
+    this.currentSession = await this.sessionCoordinator.current();
+    const draft = await this.collect(this.currentSession, signal);
     let request = this.request(
       draft,
-      this.session.generation,
+      this.currentSession.generation,
       this.sequence + 1,
     );
     let retry = 0;
@@ -81,11 +83,13 @@ export class HeartbeatLoop {
         return;
       } catch (error) {
         if (error instanceof StaleGenerationError) {
-          this.session = await this.client.startSession();
+          this.currentSession = await this.sessionCoordinator.refresh(
+            request.generation,
+          );
           this.sequence = 0;
           request = {
             ...request,
-            generation: this.session.generation,
+            generation: this.currentSession.generation,
             sequence: 1,
           };
           continue;
