@@ -450,8 +450,8 @@ function isHeartbeatResponse(value: unknown): value is HeartbeatResponse {
   return (
     isPositiveInteger(value.generation) &&
     isPositiveInteger(value.acceptedSequence) &&
-    typeof value.state === "string" &&
-    AUTOMATION_STATES.some((state) => state === value.state)
+    typeof value.overallState === "string" &&
+    AUTOMATION_STATES.some((state) => state === value.overallState)
   );
 }
 

@@ -27,7 +27,7 @@ const draft: HeartbeatDraft = {
 const accepted: HeartbeatResponse = {
   generation: 1,
   acceptedSequence: 1,
-  state: "UNAVAILABLE",
+  overallState: "UNAVAILABLE",
 };
 
 describe("HeartbeatLoop", () => {

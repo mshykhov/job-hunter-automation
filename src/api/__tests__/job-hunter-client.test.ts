@@ -92,6 +92,28 @@ describe("JobHunterClient", () => {
     );
   });
 
+  it("accepts the API heartbeat response contract", async () => {
+    const client = new JobHunterClient(
+      "https://api.example.test",
+      tokenProvider,
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            generation: 3,
+            acceptedSequence: 1,
+            overallState: "READY",
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    await expect(client.sendHeartbeat(heartbeat)).resolves.toMatchObject({
+      acceptedSequence: 1,
+      overallState: "READY",
+    });
+  });
+
   it("returns null when no material request is queued", async () => {
     const client = new JobHunterClient(
       "https://api.example.test",
