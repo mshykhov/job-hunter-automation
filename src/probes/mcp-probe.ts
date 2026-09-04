@@ -56,6 +56,7 @@ export function createBrowserRunnerTransport(
   baseEnv: NodeJS.ProcessEnv = process.env,
 ): Transport {
   const display = baseEnv.DISPLAY;
+  const xauthority = baseEnv.XAUTHORITY;
   return factory({
     command: process.execPath,
     args: [serverPath],
@@ -64,6 +65,7 @@ export function createBrowserRunnerTransport(
       ...getDefaultEnvironment(),
       BROWSER_PROFILE_DIR: profileDir,
       ...(display === undefined ? {} : { DISPLAY: display }),
+      ...(xauthority === undefined ? {} : { XAUTHORITY: xauthority }),
     },
   });
 }
