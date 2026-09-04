@@ -51,6 +51,18 @@ describe("systemd package", () => {
     expect(installer).not.toContain("systemctl enable job-hunter-automation");
   });
 
+  it("uses the Node binary installed by bootstrap for every runtime entrypoint", async () => {
+    const [service, profile] = await Promise.all([
+      readFile("packaging/job-hunter-automation.service", "utf8"),
+      readFile("packaging/automation-canary.config.toml", "utf8"),
+    ]);
+
+    expect(service).toContain(
+      "/usr/local/bin/node /opt/job-hunter-automation/dist/launcher.js",
+    );
+    expect(profile).toContain('command = "/usr/local/bin/node"');
+  });
+
   it("uses a read-only no-approval Codex profile with only required MCP servers", async () => {
     const profile = await readFile(
       "packaging/automation-canary.config.toml",
